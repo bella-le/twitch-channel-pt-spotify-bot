@@ -181,6 +181,36 @@ function isInitialized() {
 }
 
 /**
+ * Get available Spotify devices
+ * @returns {Array} List of available devices
+ */
+async function getDevices() {
+  try {
+    const response = await spotifyApi.getMyDevices();
+    return response.body.devices;
+  } catch (error) {
+    console.error('Error getting devices:', error);
+    return [];
+  }
+}
+
+/**
+ * Transfer playback to a specific device
+ * @param {string} deviceId - The Spotify device ID
+ * @returns {boolean} Whether the transfer was successful
+ */
+async function transferPlayback(deviceId) {
+  try {
+    await spotifyApi.transferMyPlayback([deviceId]);
+    console.log(`Transferred playback to device: ${deviceId}`);
+    return true;
+  } catch (error) {
+    console.error('Error transferring playback:', error);
+    return false;
+  }
+}
+
+/**
  * Add a song to the Spotify queue
  * @param {string} query - The song query (can be a Spotify URI, URL, or search term)
  * @returns {Object} The result of the operation
@@ -197,11 +227,12 @@ async function addSongToQueue(query) {
       await refreshAccessToken();
     }
     
+    // Get track info based on query type
+    let trackId, trackName, artistName;
+    
     // Check if the query is a Spotify URI or URL
     if (query.includes('spotify.com') || query.includes('spotify:track:')) {
       // Extract the track ID from the URI or URL
-      let trackId;
-      
       if (query.includes('spotify:track:')) {
         // Format: spotify:track:1234567890
         trackId = query.split(':')[2];
@@ -214,15 +245,8 @@ async function addSongToQueue(query) {
       
       // Get track info
       const track = await spotifyApi.getTrack(trackId);
-      
-      // Add the track to the queue
-      await spotifyApi.addToQueue(`spotify:track:${trackId}`);
-      
-      return {
-        success: true,
-        trackName: track.body.name,
-        artistName: track.body.artists.map(artist => artist.name).join(', ')
-      };
+      trackName = track.body.name;
+      artistName = track.body.artists.map(artist => artist.name).join(', ');
     } else {
       // Treat as a search query
       const searchResults = await spotifyApi.searchTracks(query, { limit: 1 });
@@ -232,16 +256,50 @@ async function addSongToQueue(query) {
       }
       
       const track = searchResults.body.tracks.items[0];
-      
-      // Add the track to the queue
-      await spotifyApi.addToQueue(`spotify:track:${track.id}`);
-      
-      return {
-        success: true,
-        trackName: track.name,
-        artistName: track.artists.map(artist => artist.name).join(', ')
-      };
+      trackId = track.id;
+      trackName = track.name;
+      artistName = track.artists.map(artist => artist.name).join(', ');
     }
+    
+    // Try to add the track to the queue
+    try {
+      await spotifyApi.addToQueue(`spotify:track:${trackId}`);
+    } catch (error) {
+      // If no active device is found, try to transfer playback to the last active device
+      if (error.body && error.body.error && error.body.error.reason === 'NO_ACTIVE_DEVICE') {
+        console.log('No active device found. Attempting to transfer playback...');
+        
+        // Get available devices
+        const devices = await getDevices();
+        
+        if (devices.length === 0) {
+          throw new Error('No Spotify devices available. Please open Spotify on a device.');
+        }
+        
+        // Find the first available device (preferably one that was recently active)
+        const availableDevice = devices.find(device => device.is_active) || devices[0];
+        
+        // Transfer playback to the device
+        const transferred = await transferPlayback(availableDevice.id);
+        
+        if (!transferred) {
+          throw new Error('Failed to transfer playback to available device');
+        }
+        
+        // Try adding to queue again after transfer
+        await spotifyApi.addToQueue(`spotify:track:${trackId}`);
+        console.log(`Successfully transferred playback to ${availableDevice.name} and added song to queue`);
+      } else {
+        // If it's a different error, rethrow it
+        throw error;
+      }
+    }
+    
+    return {
+      success: true,
+      trackName,
+      artistName
+    };
   } catch (error) {
     console.error('Error adding song to queue:', error);
     return {
@@ -256,5 +314,7 @@ module.exports = {
   getAuthorizationUrl,
   handleCallback,
   isInitialized,
-  addSongToQueue
+  addSongToQueue,
+  getDevices,
+  transferPlayback
 };
