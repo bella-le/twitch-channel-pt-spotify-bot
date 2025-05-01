@@ -20,12 +20,20 @@ async function initialize(spotify) {
   // Create a new Twitch client
   const client = new tmi.Client({
     options: { debug: true },
-    identity: {
-      username: CHANNEL,
-      password: `oauth:${process.env.TWITCH_CLIENT_SECRET}`
+    connection: {
+      reconnect: true,
+      secure: true
     },
+    // For anonymous connection (no chat capabilities, but can listen for channel point redemptions)
     channels: [CHANNEL]
   });
+  
+  // Note: For full chat capabilities, you would need a proper OAuth token from
+  // https://twitchapps.com/tmi/ and then use:
+  // identity: {
+  //   username: CHANNEL,
+  //   password: 'oauth:your_oauth_token_here'
+  // },
 
   // Connect to Twitch
   try {
