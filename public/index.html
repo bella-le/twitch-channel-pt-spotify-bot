@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Twitch Song Request Bot</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    
+    .container {
+      background-color: white;
+      border-radius: 10px;
+      padding: 30px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    h1 {
+      color: #6441a5; /* Twitch purple */
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    h2 {
+      color: #1DB954; /* Spotify green */
+      margin-top: 30px;
+    }
+    
+    .status-container {
+      margin: 30px 0;
+      padding: 20px;
+      border-radius: 5px;
+      text-align: center;
+    }
+    
+    .status-authenticated {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .status-not-authenticated {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .btn {
+      display: inline-block;
+      background-color: #6441a5;
+      color: white;
+      padding: 10px 20px;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+    
+    .btn:hover {
+      background-color: #7d5bbe;
+    }
+    
+    .steps {
+      margin: 30px 0;
+    }
+    
+    .steps li {
+      margin-bottom: 15px;
+    }
+    
+    footer {
+      margin-top: 50px;
+      text-align: center;
+      font-size: 0.9em;
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Twitch Channel Points Song Request Bot</h1>
+    
+    <div id="status-container" class="status-container">
+      <p>Checking authentication status...</p>
+    </div>
+    
+    <h2>How It Works</h2>
+    <ol class="steps">
+      <li>Create a channel point redemption on your Twitch channel named "Song Request" (or whatever you've configured in your .env file)</li>
+      <li>Make sure to enable the "Require viewer to enter text" option for the redemption</li>
+      <li>Viewers can redeem channel points and enter a song name, Spotify URL, or Spotify URI in the message</li>
+      <li>The bot will automatically add the requested song to your Spotify queue</li>
+    </ol>
+    
+    <h2>Setup Instructions</h2>
+    <ol class="steps">
+      <li>Create a Twitch Developer Application at <a href="https://dev.twitch.tv/console/apps" target="_blank">https://dev.twitch.tv/console/apps</a></li>
+      <li>Create a Spotify Developer Application at <a href="https://developer.spotify.com/dashboard" target="_blank">https://developer.spotify.com/dashboard</a></li>
+      <li>Add the redirect URI: <code>http://127.0.0.1:8888/callback</code> to your Spotify app</li>
+      <li>Copy your Client IDs and Client Secrets to the .env file</li>
+      <li>Make sure Spotify is running on your device</li>
+    </ol>
+  </div>
+  
+  <footer>
+    <p>Made with ❤️ for Twitch streamers</p>
+  </footer>
+
+  <script>
+    // Check authentication status on page load
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const response = await fetch('/status');
+        const data = await response.json();
+        
+        const statusContainer = document.getElementById('status-container');
+        
+        if (data.status === 'authenticated') {
+          statusContainer.className = 'status-container status-authenticated';
+          statusContainer.innerHTML = `
+            <h3>✅ Bot Status: Connected</h3>
+            <p>Your bot is authenticated with Spotify and ready to receive song requests!</p>
+          `;
+        } else {
+          statusContainer.className = 'status-container status-not-authenticated';
+          statusContainer.innerHTML = `
+            <h3>❌ Bot Status: Not Connected</h3>
+            <p>Your bot is not authenticated with Spotify.</p>
+            <a href="/auth/spotify" class="btn">Connect with Spotify</a>
+          `;
+        }
+      } catch (error) {
+        console.error('Error checking status:', error);
+        const statusContainer = document.getElementById('status-container');
+        statusContainer.className = 'status-container status-not-authenticated';
+        statusContainer.innerHTML = `
+          <h3>❌ Error</h3>
+          <p>There was an error checking the authentication status.</p>
+        `;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "song-request-bot",
+  "version": "1.0.0",
+  "description": "twitch channel points -> spotify song requests",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "author": "bella le",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0",
+    "open": "^8.4.2",
+    "spotify-web-api-node": "^5.0.2",
+    "tmi.js": "^1.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
