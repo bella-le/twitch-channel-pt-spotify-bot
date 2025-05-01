@@ -1,15 +1,14 @@
 const express = require('express');
 const crypto = require('crypto');
 const axios = require('axios');
+const twitchAuth = require('./twitchAuth');
 
 // Configuration
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
-const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
 const TWITCH_CHANNEL = process.env.TWITCH_CHANNEL;
 const REDEMPTION_NAME = process.env.TWITCH_REDEMPTION_NAME || 'Song Request';
 
 let spotifyClient = null;
-let accessToken = null;
 let userId = null;
 let webhookSecret = null;
 let subscriptionId = null;
@@ -20,16 +19,24 @@ let subscriptionId = null;
  * @param {Object} app - The Express app instance
  */
 async function initialize(spotify, app) {
-  if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET || !TWITCH_CHANNEL) {
-    throw new Error('Twitch credentials or channel name not set in environment variables');
+  if (!TWITCH_CLIENT_ID || !TWITCH_CHANNEL) {
+    throw new Error('Twitch client ID or channel name not set in environment variables');
   }
 
   spotifyClient = spotify;
   
   try {
-    // Get app access token
-    accessToken = await getAppAccessToken();
-    console.log('Obtained Twitch app access token');
+    // Initialize Twitch authentication
+    const authInitialized = await twitchAuth.initialize();
+    
+    if (!authInitialized) {
+      console.log('Twitch authentication not initialized. Please authenticate with Twitch first.');
+      // Set up authentication routes
+      twitchAuth.setupAuthRoutes(app);
+      return false;
+    }
+    
+    console.log('Twitch authentication initialized');
     
     // Get user ID from username
     userId = await getUserId(TWITCH_CHANNEL);
@@ -40,6 +47,9 @@ async function initialize(spotify, app) {
     
     // Set up webhook endpoint
     setupWebhookEndpoint(app);
+    
+    // Set up authentication routes (in case re-authentication is needed)
+    twitchAuth.setupAuthRoutes(app);
     
     console.log('Twitch EventSub integration initialized');
     return true;
@@ -146,22 +156,7 @@ async function handleSongRequest(username, message) {
   }
 }
 
-/**
- * Get an app access token from Twitch
- * @returns {string} The access token
- */
-async function getAppAccessToken() {
-  try {
-    const response = await axios.post(
-      `https://id.twitch.tv/oauth2/token?client_id=${TWITCH_CLIENT_ID}&client_secret=${TWITCH_CLIENT_SECRET}&grant_type=client_credentials`
-    );
-    
-    return response.data.access_token;
-  } catch (error) {
-    console.error('Error getting app access token:', error);
-    throw error;
-  }
-}
+
 
 /**
  * Get a user ID from a username
@@ -170,6 +165,13 @@ async function getAppAccessToken() {
  */
 async function getUserId(username) {
   try {
+    // Get the access token from twitchAuth
+    const accessToken = twitchAuth.getAccessToken();
+    
+    if (!accessToken) {
+      throw new Error('No Twitch access token available');
+    }
+    
     const response = await axios.get(`https://api.twitch.tv/helix/users?login=${username}`, {
       headers: {
         'Client-ID': TWITCH_CLIENT_ID,
@@ -195,6 +197,16 @@ async function getUserId(username) {
  */
 async function subscribeToChannelPointRedemptions(callbackUrl) {
   try {
+    // Get the access token from twitchAuth
+    const accessToken = twitchAuth.getAccessToken();
+    
+    if (!accessToken) {
+      throw new Error('No Twitch access token available');
+    }
+    
+    console.log(`Attempting to subscribe to channel point redemptions for user ID: ${userId}`);
+    console.log(`Using callback URL: ${callbackUrl}`);
+    
     const response = await axios.post(
       'https://api.twitch.tv/helix/eventsub/subscriptions',
       {
@@ -222,7 +234,18 @@ async function subscribeToChannelPointRedemptions(callbackUrl) {
     console.log(`Subscribed to channel point redemptions with ID: ${subscriptionId}`);
     return subscriptionId;
   } catch (error) {
-    console.error('Error subscribing to channel point redemptions:', error);
+    console.error('Error subscribing to channel point redemptions:');
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+      
+      if (error.response.status === 403) {
+        console.error('403 Forbidden: This usually means your Twitch token does not have the necessary permissions.');
+        console.error('Make sure you have authenticated with the channel:read:redemptions scope.');
+      }
+    }
     throw error;
   }
 }

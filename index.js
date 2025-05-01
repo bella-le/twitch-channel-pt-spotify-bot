@@ -29,9 +29,10 @@ app.get('/', (req, res) => {
 
 // Status endpoint
 app.get('/api/status', (req, res) => {
+  const twitchAuth = require('./src/twitchAuth');
   res.json({
     spotify: spotifyClient.isInitialized() ? 'connected' : 'disconnected',
-    twitch: process.env.TWITCH_CLIENT_ID ? 'configured' : 'not configured'
+    twitch: twitchAuth.isInitialized() ? 'connected' : 'disconnected'
   });
 });
 
@@ -40,24 +41,66 @@ const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
+// Initialize Twitch integration
+let twitchInitialized = false;
+if (process.env.TWITCH_CLIENT_ID && process.env.TWITCH_CLIENT_SECRET && process.env.TWITCH_CHANNEL) {
+  if (process.env.USE_EVENTSUB === 'true') {
+    console.log('Using Twitch EventSub for channel point redemptions');
+    
+    // Initialize Twitch EventSub
+    twitchEventSub.initialize(spotifyClient, app)
+      .then((initialized) => {
+        if (initialized) {
+          twitchInitialized = true;
+          console.log('Twitch EventSub initialized');
+          
+          // Get the callback URL based on environment
+          const callbackUrl = process.env.NODE_ENV === 'production'
+            ? `${process.env.APP_URL}/webhook/twitch`
+            : `http://localhost:${PORT}/webhook/twitch`;
+          
+          // Check if we have a valid Twitch auth token
+          const twitchAuth = require('./src/twitchAuth');
+          if (twitchAuth.isInitialized()) {
+            // Subscribe to channel point redemptions
+            twitchEventSub.subscribeToChannelPointRedemptions(callbackUrl)
+              .then(subscriptionId => {
+                console.log(`Subscribed to channel point redemptions with ID: ${subscriptionId}`);
+              })
+              .catch(error => {
+                console.error('Failed to subscribe to channel point redemptions:', error);
+                console.log('Please authenticate with Twitch at /auth/twitch to enable channel point redemptions');
+              });
+          } else {
+            console.log('Twitch authentication required. Please visit /auth/twitch to authenticate.');
+          }
+        } else {
+          console.log('Twitch EventSub not fully initialized. Please authenticate with Twitch at /auth/twitch');
+        }
+      })
+      .catch(error => {
+        console.error('Failed to initialize Twitch EventSub:', error);
+      });
+  } else {
+    console.log('Using Twitch IRC for channel point redemptions');
+    // twitchBot.initialize(spotifyClient)
+    //   .then(() => {
+    //     twitchInitialized = true;
+    //     console.log('Twitch IRC bot initialized');
+    //   })
+    //   .catch(error => {
+    //     console.error('Failed to initialize Twitch IRC bot:', error);
+    //   });
+  }
+}
+
 // Initialize services
 async function initializeServices() {
   try {
     // Initialize Spotify client first to ensure authentication
     await spotifyClient.initialize();
     
-    // Then initialize Twitch EventSub with the Spotify client
-    await twitchEventSub.initialize(spotifyClient, app);
-    
-    // If we're in a production environment, set up EventSub for the deployed URL
-    if (process.env.NODE_ENV === 'production' && process.env.APP_URL) {
-      await twitchEventSub.setupEventSubForDeployment(process.env.APP_URL);
-    } else {
-      console.log('Running in development mode. EventSub webhook requires a public URL.');
-      console.log('Set NODE_ENV=production and APP_URL=your-app-url to enable EventSub in production.');
-    }
-    
-    console.log('Bot initialized and ready to receive song requests!');
+    // Note: Twitch EventSub is now initialized separately with proper user authentication
   } catch (error) {
     console.error('Failed to initialize services:', error);
     process.exit(1);

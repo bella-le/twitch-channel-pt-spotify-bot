@@ -67,6 +67,49 @@
       background-color: #7d5bbe;
     }
     
+    .auth-button {
+      display: inline-block;
+      background-color: #6441a5;
+      color: white;
+      padding: 10px 20px;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+    
+    .auth-button:hover {
+      background-color: #7d5bbe;
+    }
+    
+    .status-success {
+      color: #155724;
+      background-color: #d4edda;
+      border: 1px solid #c3e6cb;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    
+    .status-error {
+      color: #721c24;
+      background-color: #f8d7da;
+      border: 1px solid #f5c6cb;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    
+    .note {
+      font-size: 0.9em;
+      color: #666;
+      margin-top: 5px;
+    }
+    
+    .full-width {
+      width: 100%;
+      text-align: center;
+      margin: 20px 0;
+    }
+    
     .steps {
       margin: 30px 0;
     }
@@ -89,6 +132,10 @@
     
     <div id="status-container" class="status-container">
       <p>Checking authentication status...</p>
+    </div>
+    
+    <div id="twitch-status-container" class="status-container">
+      <p>Checking Twitch authentication status...</p>
     </div>
     
     <h2>How It Works</h2>
@@ -118,32 +165,58 @@
     // Check authentication status on page load
     window.addEventListener('DOMContentLoaded', async () => {
       try {
-        const response = await fetch('/status');
+        const response = await fetch('/api/status');
         const data = await response.json();
         
-        const statusContainer = document.getElementById('status-container');
+        const spotifyStatusContainer = document.getElementById('status-container');
+        const twitchStatusContainer = document.getElementById('twitch-status-container');
         
-        if (data.status === 'authenticated') {
-          statusContainer.className = 'status-container status-authenticated';
-          statusContainer.innerHTML = `
-            <h3>✅ Bot Status: Connected</h3>
-            <p>Your bot is authenticated with Spotify and ready to receive song requests!</p>
+        // Update Spotify status
+        if (data.spotify === 'connected') {
+          spotifyStatusContainer.innerHTML = `
+            <p class="status-success">✅ Connected to Spotify</p>
+            <p>Your Spotify integration is ready!</p>
           `;
         } else {
-          statusContainer.className = 'status-container status-not-authenticated';
-          statusContainer.innerHTML = `
-            <h3>❌ Bot Status: Not Connected</h3>
-            <p>Your bot is not authenticated with Spotify.</p>
-            <a href="/auth/spotify" class="btn">Connect with Spotify</a>
+          spotifyStatusContainer.innerHTML = `
+            <p class="status-error">❌ Not connected to Spotify</p>
+            <a href="/auth/spotify" class="auth-button">Connect with Spotify</a>
+            <p class="note">You'll need to authenticate with Spotify to use this bot.</p>
           `;
+        }
+        
+        // Update Twitch status
+        if (data.twitch === 'connected') {
+          twitchStatusContainer.innerHTML = `
+            <p class="status-success">✅ Connected to Twitch</p>
+            <p>Your Twitch integration is ready!</p>
+          `;
+        } else {
+          twitchStatusContainer.innerHTML = `
+            <p class="status-error">❌ Not connected to Twitch</p>
+            <a href="/auth/twitch" class="auth-button">Connect with Twitch</a>
+            <p class="note">You'll need to authenticate with Twitch to enable channel point redemptions.</p>
+          `;
+        }
+        
+        // Check if both are connected
+        if (data.spotify === 'connected' && data.twitch === 'connected') {
+          const statusMessage = document.createElement('div');
+          statusMessage.className = 'status-success full-width';
+          statusMessage.innerHTML = `
+            <p>🎉 Your integration is fully configured and ready to accept song requests!</p>
+          `;
+          document.querySelector('.container').insertBefore(statusMessage, document.querySelector('h2'));
         }
       } catch (error) {
         console.error('Error checking status:', error);
-        const statusContainer = document.getElementById('status-container');
-        statusContainer.className = 'status-container status-not-authenticated';
-        statusContainer.innerHTML = `
-          <h3>❌ Error</h3>
-          <p>There was an error checking the authentication status.</p>
+        document.getElementById('status-container').innerHTML = `
+          <p class="status-error">❌ Error checking status</p>
+          <p>There was an error checking the authentication status. Please try again later.</p>
+        `;
+        document.getElementById('twitch-status-container').innerHTML = `
+          <p class="status-error">❌ Error checking status</p>
+          <p>There was an error checking the authentication status. Please try again later.</p>
         `;
       }
     });
