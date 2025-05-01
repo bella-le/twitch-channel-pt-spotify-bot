@@ -230,18 +230,29 @@ async function addSongToQueue(query) {
     // Get track info based on query type
     let trackId, trackName, artistName;
     
-    // Check if the query is a Spotify URI or URL
-    if (query.includes('spotify.com') || query.includes('spotify:track:')) {
-      // Extract the track ID from the URI or URL
-      if (query.includes('spotify:track:')) {
-        // Format: spotify:track:1234567890
-        trackId = query.split(':')[2];
-      } else if (query.includes('spotify.com/track/')) {
-        // Format: https://open.spotify.com/track/1234567890
-        trackId = query.split('/track/')[1].split('?')[0];
-      } else {
-        throw new Error('Invalid Spotify URI or URL');
+    // Extract Spotify track link from the query (which might contain additional text)
+    let spotifyLink = null;
+    
+    // Check for Spotify URI format (spotify:track:1234567890)
+    const uriMatch = query.match(/spotify:track:([a-zA-Z0-9]+)/);
+    if (uriMatch && uriMatch[1]) {
+      spotifyLink = uriMatch[0]; // The full URI
+      trackId = uriMatch[1]; // The ID portion
+      console.log(`Found Spotify URI in message: ${spotifyLink}`);
+    }
+    
+    // Check for Spotify URL format (https://open.spotify.com/track/1234567890)
+    if (!spotifyLink) {
+      const urlMatch = query.match(/https?:\/\/open\.spotify\.com\/track\/([a-zA-Z0-9]+)(\?[^\s]*)?/);
+      if (urlMatch && urlMatch[1]) {
+        spotifyLink = urlMatch[0].split('?')[0]; // The URL without query parameters
+        trackId = urlMatch[1]; // The ID portion
+        console.log(`Found Spotify URL in message: ${spotifyLink}`);
       }
+    }
+    
+    // If we found a Spotify link, proceed with getting track info
+    if (trackId) {
       
       // Get track info
       const track = await spotifyApi.getTrack(trackId);

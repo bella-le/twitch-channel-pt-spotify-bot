@@ -26,29 +26,23 @@ async function initialize(spotify, app) {
   spotifyClient = spotify;
   
   try {
-    // Initialize Twitch authentication
     const authInitialized = await twitchAuth.initialize();
     
     if (!authInitialized) {
       console.log('Twitch authentication not initialized. Please authenticate with Twitch first.');
-      // Set up authentication routes
       twitchAuth.setupAuthRoutes(app);
       return false;
     }
     
     console.log('Twitch authentication initialized');
     
-    // Get user ID from username
     userId = await getUserId(TWITCH_CHANNEL);
     console.log(`Resolved Twitch channel ${TWITCH_CHANNEL} to user ID: ${userId}`);
     
-    // Generate webhook secret
     webhookSecret = crypto.randomBytes(16).toString('hex');
     
-    // Set up webhook endpoint
     setupWebhookEndpoint(app);
     
-    // Set up authentication routes (in case re-authentication is needed)
     twitchAuth.setupAuthRoutes(app);
     
     console.log('Twitch EventSub integration initialized');
@@ -83,10 +77,8 @@ function setupWebhookEndpoint(app) {
       return res.status(403).send('Invalid signature');
     }
     
-    // Parse the notification
     const notification = JSON.parse(body);
     
-    // Handle different message types
     const messageType = req.headers['twitch-eventsub-message-type'];
     
     if (messageType === 'webhook_callback_verification') {
@@ -165,7 +157,6 @@ async function handleSongRequest(username, message) {
  */
 async function getUserId(username) {
   try {
-    // Get the access token from twitchAuth
     const accessToken = twitchAuth.getAccessToken();
     
     if (!accessToken) {
@@ -197,7 +188,6 @@ async function getUserId(username) {
  */
 async function subscribeToChannelPointRedemptions(callbackUrl) {
   try {
-    // Get the access token from twitchAuth
     const accessToken = twitchAuth.getAccessToken();
     
     if (!accessToken) {

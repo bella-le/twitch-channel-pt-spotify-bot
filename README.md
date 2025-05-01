@@ -1,6 +1,10 @@
-# Twitch Channel Points Spotify Request Bot
+# Twitch Channel Points Spotify Request Integration
 
 A Node.js application that allows Twitch viewers to request songs via channel point redemptions, which are automatically added to your Spotify queue.
+
+If you've stumbled across this repo on the internet, feel free to ignore the index.html file, which I have set up for a friend :)
+
+If you liked this, you can support me on [Twitch](https://twitch.tv/7decibel)
 
 ## Features
 
@@ -24,7 +28,7 @@ A Node.js application that allows Twitch viewers to request songs via channel po
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/song-request-bot.git
+git clone https://github.com/bella-le/song-request-bot.git
 cd song-request-bot
 ```
 

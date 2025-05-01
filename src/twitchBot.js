@@ -5,6 +5,8 @@ const REDEMPTION_NAME = process.env.TWITCH_REDEMPTION_NAME || 'Song Request';
 
 let spotifyClient = null;
 
+// Optional: For bot integration and messages
+
 /**
  * Initialize the Twitch bot
  * @param {Object} spotify - The initialized Spotify client
@@ -16,7 +18,6 @@ async function initialize(spotify) {
 
   spotifyClient = spotify;
 
-  // Create a new Twitch client
   const client = new tmi.Client({
     options: { debug: true },
     connection: {
