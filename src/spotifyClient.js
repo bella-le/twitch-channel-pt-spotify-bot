@@ -115,7 +115,19 @@ async function handleCallback(code) {
       expiresAt: Date.now() + (data.body.expires_in * 1000)
     };
     
-    fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens, null, 2));
+    // Update our in-memory variables
+    storedAccessToken = tokens.accessToken;
+    storedRefreshToken = tokens.refreshToken;
+    tokenExpiresAt = tokens.expiresAt;
+    
+    // Store to file if possible (may not work in cloud environments with ephemeral filesystems)
+    try {
+      fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens, null, 2));
+      console.log('Successfully stored tokens to file');
+    } catch (error) {
+      console.log('Could not store tokens to file, but they are stored in memory:', error.message);
+    }
+    
     console.log('Successfully authenticated with Spotify');
     
     initialized = true;
@@ -136,12 +148,20 @@ async function refreshAccessToken() {
     // Update the access token
     spotifyApi.setAccessToken(data.body.access_token);
     
-    // Update the stored tokens
-    if (fs.existsSync(TOKEN_PATH)) {
-      const tokens = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'));
-      tokens.accessToken = data.body.access_token;
-      tokens.expiresAt = Date.now() + (data.body.expires_in * 1000);
-      fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens, null, 2));
+    // Update in-memory tokens
+    storedAccessToken = data.body.access_token;
+    tokenExpiresAt = Date.now() + (data.body.expires_in * 1000);
+    
+    // Update the stored tokens in file if possible
+    try {
+      if (fs.existsSync(TOKEN_PATH)) {
+        const tokens = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'));
+        tokens.accessToken = data.body.access_token;
+        tokens.expiresAt = tokenExpiresAt;
+        fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens, null, 2));
+      }
+    } catch (error) {
+      console.log('Could not update token file, but tokens are updated in memory:', error.message);
     }
     
     console.log('Successfully refreshed Spotify access token');

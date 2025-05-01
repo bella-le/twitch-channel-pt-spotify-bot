@@ -6,9 +6,9 @@ This guide explains how to deploy your Twitch Channel Points Spotify Request Bot
 
 Before deploying to Railway, please be aware of these limitations:
 
-1. **Spotify Active Client Requirement**: Spotify's Web API can only add songs to the queue of an active Spotify client. This means someone needs to have Spotify running for the bot to work.
+1. **Spotify Active Client Requirement**: Spotify's Web API can only add songs to the queue of an active Spotify client. This means your friend needs to have Spotify running on their device for the bot to work.
 
-2. **Authentication Challenges**: The bot requires Spotify authentication, which typically needs a browser flow. For a cloud deployment, you'll need to handle this differently.
+2. **Authentication Flow**: The bot requires Spotify authentication, but our implementation makes this easy with a web interface.
 
 ## Deployment Steps
 
@@ -19,15 +19,7 @@ Make sure your repository includes:
 - `railway.json` (already added)
 - `Procfile` (already added)
 
-### 2. Initial Authentication
-
-Before deploying, you need to authenticate with Spotify locally:
-
-1. Run the bot locally: `npm start`
-2. Complete the Spotify authentication flow
-3. Find the generated `tokens.json` file in your project directory
-
-### 3. Set Up Railway Project
+### 2. Set Up Railway Project
 
 1. Create a new project on [Railway](https://railway.app/)
 2. Connect your GitHub repository
@@ -39,24 +31,27 @@ Before deploying, you need to authenticate with Spotify locally:
    - `TWITCH_CHANNEL` - The Twitch channel name
    - `TWITCH_REDEMPTION_NAME` - The name of the channel point redemption (default: "Song Request")
    - `PORT` - Set to `8888`
-   
-### 4. Add Spotify Tokens to Environment Variables
 
-After authenticating locally, open the `tokens.json` file and add these values to your Railway environment variables:
-
-1. `SPOTIFY_ACCESS_TOKEN` - The access token from tokens.json
-2. `SPOTIFY_REFRESH_TOKEN` - The refresh token from tokens.json
-3. `TOKEN_EXPIRES_AT` - The expiration timestamp from tokens.json
-
-### 5. Update Redirect URI
+### 3. Update Redirect URI
 
 In your Spotify Developer Dashboard, add your Railway app URL as a redirect URI:
 - Format: `https://your-railway-app-name.up.railway.app/callback`
 
-### 6. Deploy
+### 4. Deploy
 
 1. Push your changes to GitHub
 2. Railway will automatically deploy your application
+
+### 5. Authentication
+
+Once deployed, have your friend:
+
+1. Visit your Railway app URL (e.g., `https://your-railway-app-name.up.railway.app`)
+2. Click the "Connect with Spotify" button
+3. Complete the Spotify authentication flow
+4. The bot will automatically store the authentication tokens
+
+That's it! No manual token copying needed. The bot will now be able to add songs to your friend's Spotify queue when viewers redeem channel points.
 
 ## Limitations and Workarounds
 
