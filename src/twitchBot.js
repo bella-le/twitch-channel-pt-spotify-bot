@@ -1,6 +1,5 @@
 const tmi = require('tmi.js');
 
-// Configuration for the Twitch bot
 const CHANNEL = process.env.TWITCH_CHANNEL;
 const REDEMPTION_NAME = process.env.TWITCH_REDEMPTION_NAME || 'Song Request';
 
