@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Twitch Song Request Bot</title>
+  <title>Twitch Song Request Integration</title>
   <style>
     body {
       font-family: 'Arial', sans-serif;
@@ -128,7 +128,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>Twitch Channel Points Song Request Bot</h1>
+    <h1>Twitch Channel Points Song Request Integration</h1>
     
     <div id="status-container" class="status-container">
       <p>Checking authentication status...</p>
@@ -138,22 +138,19 @@
       <p>Checking Twitch authentication status...</p>
     </div>
     
-    <h2>How It Works</h2>
+    <h2>basic easy thing setup instructions</h2>
     <ol class="steps">
       <li>Create a channel point redemption on your Twitch channel named "Song Request" (or whatever you've configured in your .env file)</li>
       <li>Make sure to enable the "Require viewer to enter text" option for the redemption</li>
       <li>Viewers can redeem channel points and enter a song name, Spotify URL, or Spotify URI in the message</li>
-      <li>The bot will automatically add the requested song to your Spotify queue</li>
+      <li>The integration will automatically add the requested song to your Spotify queue</li>
     </ol>
     
-    <h2>Setup Instructions for you!!!</h2>
+    <h2>Setup Instructions for you, the streamer!!!</h2>
     <ol class="steps">
-      <li>Create a Twitch Developer Application at <a href="https://dev.twitch.tv/console/apps" target="_blank">https://dev.twitch.tv/console/apps</a></li>
-      <li>Create a Spotify Developer Application at <a href="https://developer.spotify.com/dashboard" target="_blank">https://developer.spotify.com/dashboard</a></li>
-      <li>Add the redirect URI that is configured with the application to your Spotify app. THIS SHOULD END IN /CALLBACK !</li>
-      <li>Add the email you use for Spotify to the Spotify developer application</li>
-      <li>Copy your Client IDs and Client Secrets to the .env file that the application uses.</li>
-      <li>Make sure Spotify is running on your device</li>
+      <li>Let me know the email you use for Spotify so I can configure it onto the Spotify developer application</li>
+      <li>Make sure Spotify is running on your device :)</li>
+      <li>uhhhh hopefully it works?? idk ive never tested channel point shit before</li>
     </ol>
   </div>
   
@@ -181,7 +178,7 @@
           spotifyStatusContainer.innerHTML = `
             <p class="status-error">❌ Not connected to Spotify</p>
             <a href="/auth/spotify" class="auth-button">Connect with Spotify</a>
-            <p class="note">You'll need to authenticate with Spotify to use this bot.</p>
+            <p class="note">You'll need to authenticate with Spotify to use this integration.</p>
           `;
         }
         
