@@ -59,12 +59,16 @@ async function initialize(spotify, app) {
  */
 function setupWebhookEndpoint(app) {
   app.post('/webhook/twitch', express.raw({ type: 'application/json' }), (req, res) => {
+    console.log('Received webhook request from Twitch');
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    
     // Verify the webhook signature
     const messageId = req.headers['twitch-eventsub-message-id'];
     const timestamp = req.headers['twitch-eventsub-message-timestamp'];
     const messageSignature = req.headers['twitch-eventsub-message-signature'];
     
     const body = req.body.toString();
+    console.log('Webhook body:', body);
     
     // Verify the signature
     const hmacMessage = messageId + timestamp + body;
@@ -72,14 +76,19 @@ function setupWebhookEndpoint(app) {
       .update(hmacMessage)
       .digest('hex');
     
+    console.log('Computed signature:', signature);
+    console.log('Received signature:', messageSignature);
+    
     if (messageSignature !== signature) {
       console.error('Invalid signature on webhook');
       return res.status(403).send('Invalid signature');
     }
     
     const notification = JSON.parse(body);
+    console.log('Parsed notification:', JSON.stringify(notification, null, 2));
     
     const messageType = req.headers['twitch-eventsub-message-type'];
+    console.log('Message type:', messageType);
     
     if (messageType === 'webhook_callback_verification') {
       // Respond to the webhook verification challenge
@@ -347,18 +356,20 @@ async function handleEventNotification(notification) {
       await handleSongRequest(username, input);
     }
   } else if (eventType === 'channel.follow') {
-    // For testing purposes, treat a follow from 7decibel as a song request trigger
+    // For testing purposes, treat a follow from belbelbot as a song request trigger
     const follow = notification.event;
     const username = follow.user_name || follow.user_login;
     
+    console.log(`Received follow event: ${JSON.stringify(follow, null, 2)}`);
+    
     if (username && username.toLowerCase() === 'belbelbot') {
-      // Use a default song or playlist when 7decibel follows
+      // Use a default song or playlist when belbelbot follows
       const input = 'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT'; // Default song
       
       console.log(`Follow from ${username} - triggering song request with default song`);
       await handleSongRequest(username, input);
     } else {
-      console.log(`Follow from ${username} - not 7decibel, ignoring`);
+      console.log(`Follow from ${username} - not belbelbot, ignoring`);
     }
   }
 }
