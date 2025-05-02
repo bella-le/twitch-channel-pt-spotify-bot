@@ -10,8 +10,8 @@ const TWITCH_REDIRECT_URI = process.env.TWITCH_REDIRECT_URI || 'http://localhost
 // Token storage path
 const TOKEN_PATH = path.join(__dirname, '..', 'twitch_tokens.json');
 
-// Scopes needed for channel point redemptions
-const SCOPES = ['channel:read:redemptions'];
+// Scopes needed for channel point redemptions and follows
+const SCOPES = ['channel:read:redemptions', 'channel:manage:redemptions', 'moderator:read:followers'];
 
 let accessToken = null;
 let refreshToken = null;
