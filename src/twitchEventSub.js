@@ -373,79 +373,6 @@ async function setupEventSubForDeployment(baseUrl) {
 }
 
 /**
- * Subscribe to channel follows as a simpler alternative to chat messages
- * @param {string} callbackUrl - The webhook callback URL
- * @param {string} username - The username to listen for (not used for follows, just for logging)
- * @returns {string} The subscription ID
- */
-async function subscribeToChannelFollows(callbackUrl, username = 'belbelbot') {
-  try {
-    // Use app access token for EventSub subscriptions
-    const accessToken = await twitchAuth.getAppAccessToken();
-    
-    if (!accessToken) {
-      throw new Error('No Twitch app access token available');
-    }
-    
-    // Ensure we have a webhook secret
-    if (!webhookSecret) {
-      webhookSecret = crypto.randomBytes(16).toString('hex');
-      console.log('Generated new webhook secret for follow subscription');
-    }
-    
-    console.log(`Attempting to subscribe to channel follows for testing purposes`);
-    console.log(`Using callback URL: ${callbackUrl}`);
-    
-    // Check if userId is initialized
-    if (!userId) {
-      userId = await getUserId(TWITCH_CHANNEL);
-      console.log(`Resolved Twitch channel ${TWITCH_CHANNEL} to user ID: ${userId}`);
-    }
-    
-    const response = await axios.post(
-      'https://api.twitch.tv/helix/eventsub/subscriptions',
-      {
-        type: 'channel.follow',
-        version: '2',
-        condition: {
-          broadcaster_user_id: userId,
-          moderator_user_id: userId
-        },
-        transport: {
-          method: 'webhook',
-          callback: callbackUrl,
-          secret: webhookSecret
-        }
-      },
-      {
-        headers: {
-          'Client-ID': TWITCH_CLIENT_ID,
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    
-    const followSubscriptionId = response.data.data[0].id;
-    console.log(`Subscribed to channel follows with ID: ${followSubscriptionId}`);
-    return followSubscriptionId;
-  } catch (error) {
-    console.error('Error subscribing to chat messages:');
-    if (error.response) {
-      console.error('Response status:', error.response.status);
-      console.error('Response data:', JSON.stringify(error.response.data, null, 2));
-      
-      if (error.response.status === 400 && error.response.data.message) {
-        console.error('Error message:', error.response.data.message);
-      }
-    } else {
-      console.error(error);
-    }
-    throw error;
-  }
-}
-
-/**
  * Handle event notifications from Twitch
  * @param {Object} notification - The event notification
  */
@@ -532,7 +459,6 @@ module.exports = {
   initialize,
   setupEventSubForDeployment,
   subscribeToChannelPointRedemptions,
-  subscribeToChannelFollows,
   checkSubscriptionStatus,
   handleEventNotification
 };
