@@ -452,5 +452,6 @@ module.exports = {
   setupEventSubForDeployment,
   subscribeToChannelPointRedemptions,
   subscribeToChannelFollows,
-  checkSubscriptionStatus
+  checkSubscriptionStatus,
+  handleEventNotification
 };

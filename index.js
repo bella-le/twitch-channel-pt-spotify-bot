@@ -4,6 +4,7 @@ const path = require('path');
 const twitchEventSub = require('./src/twitchEventSub');
 const spotifyClient = require('./src/spotifyClient');
 const authRoutes = require('./src/authRoutes');
+const setupTestRoutes = require('./src/testRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 8888;
@@ -21,6 +22,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Setup authentication routes
 app.use('/', authRoutes);
+
+// Setup test routes
+setupTestRoutes(app);
 
 // Home route
 app.get('/', (req, res) => {
