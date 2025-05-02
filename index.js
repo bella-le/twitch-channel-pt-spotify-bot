@@ -14,6 +14,13 @@ const PORT = process.env.PORT || 8888;
 // The EventSub handler will parse the JSON itself
 app.use(express.urlencoded({ extended: true }));
 
+// Add request logging middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  next();
+});
+
 // For routes that need parsed JSON
 app.use('/api', express.json());
 
@@ -37,6 +44,15 @@ app.get('/api/status', (req, res) => {
   res.json({
     spotify: spotifyClient.isInitialized() ? 'connected' : 'disconnected',
     twitch: twitchAuth.isInitialized() ? 'connected' : 'disconnected'
+  });
+});
+
+// Simple health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    message: 'Server is running'
   });
 });
 

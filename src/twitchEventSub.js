@@ -25,6 +25,10 @@ async function initialize(spotify, app) {
 
   spotifyClient = spotify;
   
+  // Always set up the webhook endpoint regardless of authentication status
+  webhookSecret = crypto.randomBytes(16).toString('hex');
+  setupWebhookEndpoint(app);
+  
   try {
     const authInitialized = await twitchAuth.initialize();
     
@@ -38,10 +42,6 @@ async function initialize(spotify, app) {
     
     userId = await getUserId(TWITCH_CHANNEL);
     console.log(`Resolved Twitch channel ${TWITCH_CHANNEL} to user ID: ${userId}`);
-    
-    webhookSecret = crypto.randomBytes(16).toString('hex');
-    
-    setupWebhookEndpoint(app);
     
     twitchAuth.setupAuthRoutes(app);
     
