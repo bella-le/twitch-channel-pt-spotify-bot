@@ -167,11 +167,11 @@ async function getUserId(username) {
  */
 async function subscribeToChannelPointRedemptions(callbackUrl) {
   try {
-    // Use user access token for channel point redemptions
-    const accessToken = twitchAuth.getAccessToken();
+    // Use app access token for EventSub subscriptions as required by Twitch API
+    const accessToken = await twitchAuth.getAppAccessToken();
     
     if (!accessToken) {
-      throw new Error('No Twitch user access token available');
+      throw new Error('No Twitch app access token available');
     }
     
     // Ensure we have a webhook secret
@@ -262,11 +262,11 @@ async function setupEventSubForDeployment(baseUrl) {
  */
 async function subscribeToChannelFollows(callbackUrl, username = '7decibel') {
   try {
-    // Use user access token for channel follows (requires moderator:read:followers scope)
-    const accessToken = twitchAuth.getAccessToken();
+    // Use app access token for EventSub subscriptions
+    const accessToken = await twitchAuth.getAppAccessToken();
     
     if (!accessToken) {
-      throw new Error('No Twitch user access token available');
+      throw new Error('No Twitch app access token available');
     }
     
     // Ensure we have a webhook secret
