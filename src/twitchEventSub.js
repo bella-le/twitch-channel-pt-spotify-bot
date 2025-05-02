@@ -126,7 +126,7 @@ function setupWebhookEndpoint(app) {
     }
   });
 
-  app.post('/webhook/twitch', express.raw({ type: 'application/json' }), (req, res) => {
+  app.post('/webhook/twitch', express.raw({ type: 'application/json' }), async (req, res) => {
     console.log('Received webhook request from Twitch');
     console.log('Headers:', JSON.stringify(req.headers, null, 2));
     
