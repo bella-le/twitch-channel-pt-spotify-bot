@@ -255,12 +255,12 @@ async function setupEventSubForDeployment(baseUrl) {
 }
 
 /**
- * Subscribe to chat messages from a specific user
+ * Subscribe to channel follows as a simpler alternative to chat messages
  * @param {string} callbackUrl - The webhook callback URL
- * @param {string} username - The username to listen for messages from
+ * @param {string} username - The username to listen for (not used for follows, just for logging)
  * @returns {string} The subscription ID
  */
-async function subscribeToChatMessages(callbackUrl, username = '7decibel') {
+async function subscribeToChannelFollows(callbackUrl, username = '7decibel') {
   try {
     // Get app access token for EventSub (client credentials flow)
     const accessToken = await twitchAuth.getAppAccessToken();
@@ -272,21 +272,11 @@ async function subscribeToChatMessages(callbackUrl, username = '7decibel') {
     // Ensure we have a webhook secret
     if (!webhookSecret) {
       webhookSecret = crypto.randomBytes(16).toString('hex');
-      console.log('Generated new webhook secret for chat message subscription');
+      console.log('Generated new webhook secret for follow subscription');
     }
     
-    console.log(`Attempting to subscribe to chat messages from user: ${username}`);
+    console.log(`Attempting to subscribe to channel follows for testing purposes`);
     console.log(`Using callback URL: ${callbackUrl}`);
-    
-    // First, we need to get the user ID for the specified username
-    let targetUserId;
-    try {
-      targetUserId = await getUserId(username);
-      console.log(`Resolved username ${username} to user ID: ${targetUserId}`);
-    } catch (error) {
-      console.error(`Could not resolve username ${username} to user ID:`, error);
-      throw new Error(`Could not find user with username: ${username}`);
-    }
     
     // Check if userId is initialized
     if (!userId) {
@@ -297,11 +287,11 @@ async function subscribeToChatMessages(callbackUrl, username = '7decibel') {
     const response = await axios.post(
       'https://api.twitch.tv/helix/eventsub/subscriptions',
       {
-        type: 'channel.chat.message',
-        version: '1',
+        type: 'channel.follow',
+        version: '2',
         condition: {
           broadcaster_user_id: userId,
-          user_id: targetUserId
+          moderator_user_id: userId
         },
         transport: {
           method: 'webhook',
@@ -318,9 +308,9 @@ async function subscribeToChatMessages(callbackUrl, username = '7decibel') {
       }
     );
     
-    const chatSubscriptionId = response.data.data[0].id;
-    console.log(`Subscribed to chat messages from ${username} with ID: ${chatSubscriptionId}`);
-    return chatSubscriptionId;
+    const followSubscriptionId = response.data.data[0].id;
+    console.log(`Subscribed to channel follows with ID: ${followSubscriptionId}`);
+    return followSubscriptionId;
   } catch (error) {
     console.error('Error subscribing to chat messages:');
     if (error.response) {
@@ -338,7 +328,7 @@ async function subscribeToChatMessages(callbackUrl, username = '7decibel') {
 }
 
 /**
- * Update the handleEventNotification function to handle chat messages
+ * Handle event notifications from Twitch
  * @param {Object} notification - The event notification
  */
 async function handleEventNotification(notification) {
@@ -356,17 +346,19 @@ async function handleEventNotification(notification) {
       console.log(`Song request from ${username}: ${input}`);
       await handleSongRequest(username, input);
     }
-  } else if (eventType === 'channel.chat.message') {
-    const message = notification.event;
-    const username = message.chatter_user_name;
-    const messageText = message.message.text;
+  } else if (eventType === 'channel.follow') {
+    // For testing purposes, treat a follow from 7decibel as a song request trigger
+    const follow = notification.event;
+    const username = follow.user_name || follow.user_login;
     
-    // Check if this is a song request command
-    if (username.toLowerCase() === '7decibel' && messageText.startsWith('!song ')) {
-      const input = messageText.substring(6).trim(); // Remove "!song " prefix
+    if (username && username.toLowerCase() === 'belbelbot') {
+      // Use a default song or playlist when 7decibel follows
+      const input = 'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT'; // Default song
       
-      console.log(`Song request command from ${username}: ${input}`);
+      console.log(`Follow from ${username} - triggering song request with default song`);
       await handleSongRequest(username, input);
+    } else {
+      console.log(`Follow from ${username} - not 7decibel, ignoring`);
     }
   }
 }
@@ -375,5 +367,5 @@ module.exports = {
   initialize,
   setupEventSubForDeployment,
   subscribeToChannelPointRedemptions,
-  subscribeToChatMessages
+  subscribeToChannelFollows
 };

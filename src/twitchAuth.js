@@ -118,12 +118,12 @@ async function handleCallback(code) {
         const callbackUrl = `${process.env.APP_URL}/webhook/twitch`;
         
         // Subscribe to channel point redemptions
-        // await twitchEventSub.subscribeToChannelPointRedemptions(callbackUrl);
+        await twitchEventSub.subscribeToChannelPointRedemptions(callbackUrl);
         console.log(`Set up EventSub subscription for channel points with callback URL: ${callbackUrl}`);
         
-        // Subscribe to chat messages from 7decibel
-        await twitchEventSub.subscribeToChatMessages(callbackUrl, '7decibel');
-        console.log(`Set up EventSub subscription for chat messages from 7decibel with callback URL: ${callbackUrl}`);
+        // Subscribe to channel follows for testing with 7decibel
+        await twitchEventSub.subscribeToChannelFollows(callbackUrl, '7decibel');
+        console.log(`Set up EventSub subscription for channel follows with callback URL: ${callbackUrl}`);
       } catch (error) {
         console.error('Failed to set up EventSub subscription after authentication:', error);
       }
