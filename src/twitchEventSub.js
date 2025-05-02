@@ -173,6 +173,18 @@ async function subscribeToChannelPointRedemptions(callbackUrl) {
       throw new Error('No Twitch access token available');
     }
     
+    // Ensure we have a webhook secret
+    if (!webhookSecret) {
+      webhookSecret = crypto.randomBytes(16).toString('hex');
+      console.log('Generated new webhook secret for channel point redemption subscription');
+    }
+    
+    // Check if userId is initialized
+    if (!userId) {
+      userId = await getUserId(TWITCH_CHANNEL);
+      console.log(`Resolved Twitch channel ${TWITCH_CHANNEL} to user ID: ${userId}`);
+    }
+    
     console.log(`Attempting to subscribe to channel point redemptions for user ID: ${userId}`);
     console.log(`Using callback URL: ${callbackUrl}`);
     
@@ -255,6 +267,12 @@ async function subscribeToChatMessages(callbackUrl, username = '7decibel') {
       throw new Error('No Twitch access token available');
     }
     
+    // Ensure we have a webhook secret
+    if (!webhookSecret) {
+      webhookSecret = crypto.randomBytes(16).toString('hex');
+      console.log('Generated new webhook secret for chat message subscription');
+    }
+    
     console.log(`Attempting to subscribe to chat messages from user: ${username}`);
     console.log(`Using callback URL: ${callbackUrl}`);
     
@@ -266,6 +284,12 @@ async function subscribeToChatMessages(callbackUrl, username = '7decibel') {
     } catch (error) {
       console.error(`Could not resolve username ${username} to user ID:`, error);
       throw new Error(`Could not find user with username: ${username}`);
+    }
+    
+    // Check if userId is initialized
+    if (!userId) {
+      userId = await getUserId(TWITCH_CHANNEL);
+      console.log(`Resolved Twitch channel ${TWITCH_CHANNEL} to user ID: ${userId}`);
     }
     
     const response = await axios.post(
@@ -300,6 +324,10 @@ async function subscribeToChatMessages(callbackUrl, username = '7decibel') {
     if (error.response) {
       console.error('Response status:', error.response.status);
       console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+      
+      if (error.response.status === 400 && error.response.data.message) {
+        console.error('Error message:', error.response.data.message);
+      }
     } else {
       console.error(error);
     }
@@ -307,7 +335,10 @@ async function subscribeToChatMessages(callbackUrl, username = '7decibel') {
   }
 }
 
-// Update the handleEventNotification function to handle chat messages
+/**
+ * Update the handleEventNotification function to handle chat messages
+ * @param {Object} notification - The event notification
+ */
 async function handleEventNotification(notification) {
   const eventType = notification.subscription.type;
   
