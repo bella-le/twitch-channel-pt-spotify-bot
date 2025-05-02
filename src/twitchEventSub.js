@@ -167,10 +167,11 @@ async function getUserId(username) {
  */
 async function subscribeToChannelPointRedemptions(callbackUrl) {
   try {
-    const accessToken = twitchAuth.getAccessToken();
+    // Get app access token for EventSub (client credentials flow)
+    const accessToken = await twitchAuth.getAppAccessToken();
     
     if (!accessToken) {
-      throw new Error('No Twitch access token available');
+      throw new Error('No Twitch app access token available');
     }
     
     // Ensure we have a webhook secret
@@ -261,10 +262,11 @@ async function setupEventSubForDeployment(baseUrl) {
  */
 async function subscribeToChatMessages(callbackUrl, username = '7decibel') {
   try {
-    const accessToken = twitchAuth.getAccessToken();
+    // Get app access token for EventSub (client credentials flow)
+    const accessToken = await twitchAuth.getAppAccessToken();
     
     if (!accessToken) {
-      throw new Error('No Twitch access token available');
+      throw new Error('No Twitch app access token available');
     }
     
     // Ensure we have a webhook secret

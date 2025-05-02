@@ -343,11 +343,42 @@ function setupAuthRoutes(app) {
   });
 }
 
+/**
+ * Get an app access token (client credentials) for EventSub subscriptions
+ * @returns {Promise<string>} The app access token
+ */
+async function getAppAccessToken() {
+  try {
+    const params = new URLSearchParams({
+      client_id: TWITCH_CLIENT_ID,
+      client_secret: TWITCH_CLIENT_SECRET,
+      grant_type: 'client_credentials'
+    });
+    
+    const response = await axios.post(
+      'https://id.twitch.tv/oauth2/token',
+      params.toString(),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      }
+    );
+    
+    console.log('Successfully obtained app access token for EventSub');
+    return response.data.access_token;
+  } catch (error) {
+    console.error('Error getting app access token:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   initialize,
   getAuthorizationUrl,
   handleCallback,
   getAccessToken,
+  getAppAccessToken,
   isInitialized,
   setupAuthRoutes
 };
