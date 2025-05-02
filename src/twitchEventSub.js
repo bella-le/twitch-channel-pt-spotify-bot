@@ -101,27 +101,6 @@ function setupWebhookEndpoint(app) {
   });
 }
 
-/**
- * Handle an event notification from Twitch
- * @param {Object} notification - The notification data
- */
-async function handleEventNotification(notification) {
-  const eventType = notification.subscription.type;
-  
-  if (eventType === 'channel.channel_points_custom_reward_redemption.add') {
-    const redemption = notification.event;
-    const rewardTitle = redemption.reward.title;
-    
-    // Check if this is the song request redemption
-    if (rewardTitle === REDEMPTION_NAME) {
-      const username = redemption.user_name;
-      const input = redemption.user_input;
-      
-      console.log(`Song request from ${username}: ${input}`);
-      await handleSongRequest(username, input);
-    }
-  }
-}
 
 /**
  * Handle a song request from a Twitch user
@@ -262,7 +241,106 @@ async function setupEventSubForDeployment(baseUrl) {
   }
 }
 
+/**
+ * Subscribe to chat messages from a specific user
+ * @param {string} callbackUrl - The webhook callback URL
+ * @param {string} username - The username to listen for messages from
+ * @returns {string} The subscription ID
+ */
+async function subscribeToChatMessages(callbackUrl, username = '7decibel') {
+  try {
+    const accessToken = twitchAuth.getAccessToken();
+    
+    if (!accessToken) {
+      throw new Error('No Twitch access token available');
+    }
+    
+    console.log(`Attempting to subscribe to chat messages from user: ${username}`);
+    console.log(`Using callback URL: ${callbackUrl}`);
+    
+    // First, we need to get the user ID for the specified username
+    let targetUserId;
+    try {
+      targetUserId = await getUserId(username);
+      console.log(`Resolved username ${username} to user ID: ${targetUserId}`);
+    } catch (error) {
+      console.error(`Could not resolve username ${username} to user ID:`, error);
+      throw new Error(`Could not find user with username: ${username}`);
+    }
+    
+    const response = await axios.post(
+      'https://api.twitch.tv/helix/eventsub/subscriptions',
+      {
+        type: 'channel.chat.message',
+        version: '1',
+        condition: {
+          broadcaster_user_id: userId,
+          user_id: targetUserId
+        },
+        transport: {
+          method: 'webhook',
+          callback: callbackUrl,
+          secret: webhookSecret
+        }
+      },
+      {
+        headers: {
+          'Client-ID': TWITCH_CLIENT_ID,
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    const chatSubscriptionId = response.data.data[0].id;
+    console.log(`Subscribed to chat messages from ${username} with ID: ${chatSubscriptionId}`);
+    return chatSubscriptionId;
+  } catch (error) {
+    console.error('Error subscribing to chat messages:');
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+    } else {
+      console.error(error);
+    }
+    throw error;
+  }
+}
+
+// Update the handleEventNotification function to handle chat messages
+async function handleEventNotification(notification) {
+  const eventType = notification.subscription.type;
+  
+  if (eventType === 'channel.channel_points_custom_reward_redemption.add') {
+    const redemption = notification.event;
+    const rewardTitle = redemption.reward.title;
+    
+    // Check if this is the song request redemption
+    if (rewardTitle === REDEMPTION_NAME) {
+      const username = redemption.user_name;
+      const input = redemption.user_input;
+      
+      console.log(`Song request from ${username}: ${input}`);
+      await handleSongRequest(username, input);
+    }
+  } else if (eventType === 'channel.chat.message') {
+    const message = notification.event;
+    const username = message.chatter_user_name;
+    const messageText = message.message.text;
+    
+    // Check if this is a song request command
+    if (username.toLowerCase() === '7decibel' && messageText.startsWith('!song ')) {
+      const input = messageText.substring(6).trim(); // Remove "!song " prefix
+      
+      console.log(`Song request command from ${username}: ${input}`);
+      await handleSongRequest(username, input);
+    }
+  }
+}
+
 module.exports = {
   initialize,
-  setupEventSubForDeployment
+  setupEventSubForDeployment,
+  subscribeToChannelPointRedemptions,
+  subscribeToChatMessages
 };

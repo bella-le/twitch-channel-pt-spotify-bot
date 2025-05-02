@@ -111,6 +111,24 @@ async function handleCallback(code) {
     fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens, null, 2));
     console.log('Successfully authenticated with Twitch');
     
+    // Set up EventSub subscription if in production
+    if (process.env.NODE_ENV === 'production' && process.env.APP_URL) {
+      try {
+        const twitchEventSub = require('./twitchEventSub');
+        const callbackUrl = `${process.env.APP_URL}/webhook/twitch`;
+        
+        // Subscribe to channel point redemptions
+        await twitchEventSub.subscribeToChannelPointRedemptions(callbackUrl);
+        console.log(`Set up EventSub subscription for channel points with callback URL: ${callbackUrl}`);
+        
+        // Subscribe to chat messages from 7decibel
+        await twitchEventSub.subscribeToChatMessages(callbackUrl, '7decibel');
+        console.log(`Set up EventSub subscription for chat messages from 7decibel with callback URL: ${callbackUrl}`);
+      } catch (error) {
+        console.error('Failed to set up EventSub subscription after authentication:', error);
+      }
+    }
+    
     return { success: true };
   } catch (error) {
     console.error('Error handling Twitch callback:', error);
