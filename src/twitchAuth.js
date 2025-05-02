@@ -116,9 +116,12 @@ async function handleCallback(code) {
       try {
         const twitchEventSub = require('./twitchEventSub');
         // Fix double slash in URL if present
-        const callbackUrl = process.env.APP_URL.endsWith('/') 
-          ? `${process.env.APP_URL}webhook/twitch`
-          : `${process.env.APP_URL}/webhook/twitch`;
+        let baseUrl = process.env.APP_URL;
+        // Remove trailing slash if present
+        if (baseUrl.endsWith('/')) {
+          baseUrl = baseUrl.slice(0, -1);
+        }
+        const callbackUrl = `${baseUrl}/webhook/twitch`;
         
         // Subscribe to channel point redemptions
         await twitchEventSub.subscribeToChannelPointRedemptions(callbackUrl);

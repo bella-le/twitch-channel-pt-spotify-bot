@@ -92,19 +92,73 @@ function setupWebhookEndpoint(app) {
     }
   });
   
+  // Handle GET requests for webhook verification
+  app.get('/webhook/twitch', (req, res) => {
+    console.log('Received GET request to webhook endpoint');
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Query:', JSON.stringify(req.query, null, 2));
+    
+    // Handle Twitch verification challenge
+    if (req.query && req.query['hub.challenge']) {
+      // Legacy WebSub verification
+      const challenge = req.query['hub.challenge'];
+      console.log('Responding to Twitch WebSub verification challenge:', challenge);
+      res.status(200).send(challenge);
+    } else if (req.headers['twitch-eventsub-message-type'] === 'webhook_callback_verification') {
+      // EventSub verification
+      try {
+        const body = req.body;
+        console.log('Received EventSub verification challenge:', JSON.stringify(body, null, 2));
+        
+        if (body && body.challenge) {
+          console.log('Responding with EventSub challenge:', body.challenge);
+          res.status(200).send(body.challenge);
+        } else {
+          console.error('No challenge found in EventSub verification request');
+          res.status(400).send('No challenge found');
+        }
+      } catch (error) {
+        console.error('Error handling EventSub verification:', error);
+        res.status(500).send('Error processing verification');
+      }
+    } else {
+      res.status(200).send('Webhook endpoint is ready');
+    }
+  });
+
   app.post('/webhook/twitch', express.raw({ type: 'application/json' }), (req, res) => {
     console.log('Received webhook request from Twitch');
     console.log('Headers:', JSON.stringify(req.headers, null, 2));
     
-    // Verify the webhook signature
+    const body = req.body.toString();
+    console.log('Webhook body:', body);
+    
+    const messageType = req.headers['twitch-eventsub-message-type'];
+    console.log('Message type:', messageType);
+    
+    // Handle verification challenge
+    if (messageType === 'webhook_callback_verification') {
+      try {
+        const parsedBody = JSON.parse(body);
+        console.log('Received verification challenge:', parsedBody.challenge);
+        return res.status(200).send(parsedBody.challenge);
+      } catch (error) {
+        console.error('Error parsing verification challenge:', error);
+        return res.status(400).send('Invalid verification challenge');
+      }
+    }
+    
+    // For other message types, verify the signature
     const messageId = req.headers['twitch-eventsub-message-id'];
     const timestamp = req.headers['twitch-eventsub-message-timestamp'];
     const messageSignature = req.headers['twitch-eventsub-message-signature'];
     
-    const body = req.body.toString();
-    console.log('Webhook body:', body);
+    if (!messageId || !timestamp || !messageSignature) {
+      console.error('Missing required headers for signature verification');
+      return res.status(403).send('Missing required headers');
+    }
     
-    // Verify the signature
+    // Create the signature
     const hmacMessage = messageId + timestamp + body;
     const signature = 'sha256=' + crypto.createHmac('sha256', webhookSecret)
       .update(hmacMessage)
@@ -113,33 +167,41 @@ function setupWebhookEndpoint(app) {
     console.log('Computed signature:', signature);
     console.log('Received signature:', messageSignature);
     
-    if (messageSignature !== signature) {
-      console.error('Invalid signature on webhook');
-      return res.status(403).send('Invalid signature');
+    // Verify the signature
+    if (signature !== messageSignature) {
+      console.error('Signature verification failed');
+      return res.status(403).send('Signature verification failed');
     }
     
-    const notification = JSON.parse(body);
-    console.log('Parsed notification:', JSON.stringify(notification, null, 2));
+    // Parse the notification
+    let notification;
+    try {
+      notification = JSON.parse(body);
+      console.log('Parsed notification:', JSON.stringify(notification, null, 2));
+    } catch (error) {
+      console.error('Error parsing notification:', error);
+      return res.status(400).send('Invalid request body');
+    }
     
-    const messageType = req.headers['twitch-eventsub-message-type'];
-    console.log('Message type:', messageType);
-    
-    if (messageType === 'webhook_callback_verification') {
-      // Respond to the webhook verification challenge
-      console.log('Received webhook verification challenge');
-      return res.status(200).send(notification.challenge);
-    } else if (messageType === 'notification') {
-      // Handle the event notification
-      handleEventNotification(notification);
-      return res.status(204).end();
+    // Handle the notification based on message type
+    if (messageType === 'notification') {
+      try {
+        console.log('Processing event notification');
+        await handleEventNotification(notification);
+        console.log('Successfully processed event notification');
+      } catch (error) {
+        console.error('Error handling notification:', error);
+        // Still return 200 to acknowledge receipt
+      }
     } else if (messageType === 'revocation') {
-      // Handle subscription revocation
       console.log('Subscription revoked:', notification.subscription.type);
       console.log('Reason:', notification.subscription.status);
       console.log('Condition:', JSON.stringify(notification.subscription.condition, null, 2));
-      return res.status(204).end();
+    } else {
+      console.log('Unhandled message type:', messageType);
     }
     
+    // Return a 204 No Content to acknowledge receipt
     return res.status(204).end();
   });
 }
@@ -285,9 +347,12 @@ async function setupEventSubForDeployment(baseUrl) {
   }
   
   // Fix double slash in URL if present
-  const callbackUrl = baseUrl.endsWith('/') 
-    ? `${baseUrl}webhook/twitch`
-    : `${baseUrl}/webhook/twitch`;
+  let cleanBaseUrl = baseUrl;
+  // Remove trailing slash if present
+  if (cleanBaseUrl.endsWith('/')) {
+    cleanBaseUrl = cleanBaseUrl.slice(0, -1);
+  }
+  const callbackUrl = `${cleanBaseUrl}/webhook/twitch`;
   
   try {
     // Subscribe to channel point redemption events
@@ -394,19 +459,28 @@ async function handleEventNotification(notification) {
     }
   } else if (eventType === 'channel.follow') {
     // For testing purposes, treat a follow from belbelbot as a song request trigger
-    const follow = notification.event;
-    const username = follow.user_name || follow.user_login;
     
-    console.log(`Received follow event: ${JSON.stringify(follow, null, 2)}`);
+    const event = notification.event;
+    const username = event.user_login;
+    const userId = event.user_id;
+    const followedAt = event.followed_at;
+    const broadcasterName = event.broadcaster_user_name;
     
-    if (username && username.toLowerCase() === 'belbelbot') {
-      // Use a default song or playlist when belbelbot follows
-      const input = 'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT'; // Default song
-      
-      console.log(`Follow from ${username} - triggering song request with default song`);
-      await handleSongRequest(username, input);
+    console.log(`Follow event details: User ${username} (ID: ${userId}) followed ${broadcasterName} at ${followedAt}`);
+    
+    // For testing, only process follows from belbelbot
+    if (username === 'belbelbot') {
+      console.log(`Follow from test user ${username} detected, adding default song`);
+      try {
+        // Use a default song when belbelbot follows
+        const input = 'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT'; // Default song
+        await handleSongRequest(username, input);
+        console.log('Successfully added song to queue after follow event');
+      } catch (error) {
+        console.error('Error adding song to queue after follow event:', error);
+      }
     } else {
-      console.log(`Follow from ${username} - not belbelbot, ignoring`);
+      console.log(`Follow from ${username} detected, but not test user. Ignoring.`);
     }
   }
 }
