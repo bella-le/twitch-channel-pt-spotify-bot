@@ -118,7 +118,7 @@ async function handleCallback(code) {
         const callbackUrl = `${process.env.APP_URL}/webhook/twitch`;
         
         // Subscribe to channel point redemptions
-        await twitchEventSub.subscribeToChannelPointRedemptions(callbackUrl);
+        // await twitchEventSub.subscribeToChannelPointRedemptions(callbackUrl);
         console.log(`Set up EventSub subscription for channel points with callback URL: ${callbackUrl}`);
         
         // Subscribe to chat messages from 7decibel
