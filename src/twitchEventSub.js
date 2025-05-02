@@ -58,6 +58,40 @@ async function initialize(spotify, app) {
  * @param {Object} app - The Express app instance
  */
 function setupWebhookEndpoint(app) {
+  // Add a test endpoint to verify webhook is accessible
+  app.get('/webhook/twitch/test', (req, res) => {
+    console.log('Test endpoint accessed');
+    res.status(200).json({ status: 'ok', message: 'Webhook endpoint is accessible', timestamp: new Date().toISOString() });
+  });
+
+  // Add an endpoint to check subscription status
+  app.get('/webhook/twitch/status', async (req, res) => {
+    try {
+      console.log('Checking subscription status with Twitch...');
+      const subscriptions = await checkSubscriptionStatus();
+      console.log(`Found ${subscriptions.length} active subscriptions`);
+      res.status(200).json({ status: 'ok', subscriptions });
+    } catch (error) {
+      console.error('Error checking subscription status:', error);
+      res.status(500).json({ status: 'error', message: error.message });
+    }
+  });
+
+  // Add a test endpoint to simulate webhook events (for testing only)
+  app.post('/webhook/twitch/test-event', express.json(), (req, res) => {
+    console.log('Received test webhook event');
+    console.log('Test event body:', JSON.stringify(req.body, null, 2));
+    
+    try {
+      // Process the test event
+      handleEventNotification(req.body);
+      res.status(200).json({ status: 'ok', message: 'Test event processed' });
+    } catch (error) {
+      console.error('Error processing test event:', error);
+      res.status(500).json({ status: 'error', message: error.message });
+    }
+  });
+  
   app.post('/webhook/twitch', express.raw({ type: 'application/json' }), (req, res) => {
     console.log('Received webhook request from Twitch');
     console.log('Headers:', JSON.stringify(req.headers, null, 2));
@@ -250,7 +284,10 @@ async function setupEventSubForDeployment(baseUrl) {
     throw new Error('Base URL is required for EventSub setup');
   }
   
-  const callbackUrl = `${baseUrl}/webhook/twitch`;
+  // Fix double slash in URL if present
+  const callbackUrl = baseUrl.endsWith('/') 
+    ? `${baseUrl}webhook/twitch`
+    : `${baseUrl}/webhook/twitch`;
   
   try {
     // Subscribe to channel point redemption events
@@ -374,9 +411,46 @@ async function handleEventNotification(notification) {
   }
 }
 
+/**
+ * Check the status of EventSub subscriptions with Twitch
+ * @returns {Promise<Array>} List of active subscriptions
+ */
+async function checkSubscriptionStatus() {
+  try {
+    const accessToken = await twitchAuth.getAppAccessToken();
+    
+    if (!accessToken) {
+      throw new Error('No Twitch app access token available');
+    }
+    
+    const response = await axios.get(
+      'https://api.twitch.tv/helix/eventsub/subscriptions',
+      {
+        headers: {
+          'Client-ID': TWITCH_CLIENT_ID,
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    return response.data.data;
+  } catch (error) {
+    console.error('Error checking subscription status:');
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+    } else {
+      console.error(error);
+    }
+    throw error;
+  }
+}
+
 module.exports = {
   initialize,
   setupEventSubForDeployment,
   subscribeToChannelPointRedemptions,
-  subscribeToChannelFollows
+  subscribeToChannelFollows,
+  checkSubscriptionStatus
 };

@@ -115,7 +115,10 @@ async function handleCallback(code) {
     if (process.env.NODE_ENV === 'production' && process.env.APP_URL) {
       try {
         const twitchEventSub = require('./twitchEventSub');
-        const callbackUrl = `${process.env.APP_URL}/webhook/twitch`;
+        // Fix double slash in URL if present
+        const callbackUrl = process.env.APP_URL.endsWith('/') 
+          ? `${process.env.APP_URL}webhook/twitch`
+          : `${process.env.APP_URL}/webhook/twitch`;
         
         // Subscribe to channel point redemptions
         await twitchEventSub.subscribeToChannelPointRedemptions(callbackUrl);
