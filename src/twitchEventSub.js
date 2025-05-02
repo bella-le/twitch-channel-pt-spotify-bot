@@ -126,25 +126,39 @@ function setupWebhookEndpoint(app) {
     }
   });
 
+  // Use raw body parser for all webhook requests to properly verify signatures
   app.post('/webhook/twitch', express.raw({ type: 'application/json' }), async (req, res) => {
     console.log('Received webhook request from Twitch');
     console.log('Headers:', JSON.stringify(req.headers, null, 2));
     
+    // For all requests, req.body is a Buffer
     const body = req.body.toString();
     console.log('Webhook body:', body);
     
+    // Parse the JSON body
+    let notification;
+    try {
+      notification = JSON.parse(body);
+    } catch (error) {
+      console.error('Error parsing request body:', error);
+      return res.status(400).send('Invalid request body');
+    }
+    
+    // Get the message type
     const messageType = req.headers['twitch-eventsub-message-type'];
     console.log('Message type:', messageType);
     
     // Handle verification challenge
     if (messageType === 'webhook_callback_verification') {
-      try {
-        const parsedBody = JSON.parse(body);
-        console.log('Received verification challenge:', parsedBody.challenge);
-        return res.status(200).send(parsedBody.challenge);
-      } catch (error) {
-        console.error('Error parsing verification challenge:', error);
-        return res.status(400).send('Invalid verification challenge');
+      console.log('Received verification challenge request');
+      console.log('Challenge:', notification.challenge);
+      
+      if (notification.challenge) {
+        // Return the challenge exactly as specified by Twitch
+        return res.set('Content-Type', 'text/plain').status(200).send(notification.challenge);
+      } else {
+        console.error('No challenge found in verification request');
+        return res.status(400).send('No challenge found');
       }
     }
     
@@ -173,15 +187,8 @@ function setupWebhookEndpoint(app) {
       return res.status(403).send('Signature verification failed');
     }
     
-    // Parse the notification
-    let notification;
-    try {
-      notification = JSON.parse(body);
-      console.log('Parsed notification:', JSON.stringify(notification, null, 2));
-    } catch (error) {
-      console.error('Error parsing notification:', error);
-      return res.status(400).send('Invalid request body');
-    }
+    // Notification is already parsed above
+    console.log('Parsed notification:', JSON.stringify(notification, null, 2));
     
     // Handle the notification based on message type
     if (messageType === 'notification') {
