@@ -260,7 +260,7 @@ async function setupEventSubForDeployment(baseUrl) {
  * @param {string} username - The username to listen for (not used for follows, just for logging)
  * @returns {string} The subscription ID
  */
-async function subscribeToChannelFollows(callbackUrl, username = '7decibel') {
+async function subscribeToChannelFollows(callbackUrl, username = 'belbelbot') {
   try {
     // Use app access token for EventSub subscriptions
     const accessToken = await twitchAuth.getAppAccessToken();
