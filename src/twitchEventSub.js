@@ -33,19 +33,13 @@ async function initialize(spotify, app) {
     const authInitialized = await twitchAuth.initialize();
     
     if (!authInitialized) {
-      console.log('Twitch authentication not initialized. Please authenticate with Twitch first.');
       twitchAuth.setupAuthRoutes(app);
       return false;
     }
     
-    console.log('Twitch authentication initialized');
-    
     userId = await getUserId(TWITCH_CHANNEL);
-    console.log(`Resolved Twitch channel ${TWITCH_CHANNEL} to user ID: ${userId}`);
-    
     twitchAuth.setupAuthRoutes(app);
     
-    console.log('Twitch EventSub integration initialized');
     return true;
   } catch (error) {
     console.error('Failed to initialize Twitch EventSub:', error);
@@ -60,58 +54,39 @@ async function initialize(spotify, app) {
 function setupWebhookEndpoint(app) {
   // Add a test endpoint to verify webhook is accessible
   app.get('/webhook/twitch/test', (req, res) => {
-    console.log('Test endpoint accessed');
     res.status(200).json({ status: 'ok', message: 'Webhook endpoint is accessible', timestamp: new Date().toISOString() });
   });
 
   // Add an endpoint to check subscription status
   app.get('/webhook/twitch/status', async (req, res) => {
     try {
-      console.log('Checking subscription status with Twitch...');
       const subscriptions = await checkSubscriptionStatus();
-      console.log(`Found ${subscriptions.length} active subscriptions`);
       res.status(200).json({ status: 'ok', subscriptions });
     } catch (error) {
-      console.error('Error checking subscription status:', error);
       res.status(500).json({ status: 'error', message: error.message });
     }
   });
 
   // Add a test endpoint to simulate webhook events (for testing only)
   app.post('/webhook/twitch/test-event', express.json(), (req, res) => {
-    console.log('Received test webhook event');
-    console.log('Test event body:', JSON.stringify(req.body, null, 2));
-    
     try {
-      // Process the test event
       handleEventNotification(req.body);
       res.status(200).json({ status: 'ok', message: 'Test event processed' });
     } catch (error) {
-      console.error('Error processing test event:', error);
       res.status(500).json({ status: 'error', message: error.message });
     }
   });
   
   // Handle GET requests for webhook verification
   app.get('/webhook/twitch', (req, res) => {
-    console.log('Received GET request to webhook endpoint');
-    console.log('Headers:', JSON.stringify(req.headers, null, 2));
-    console.log('Query:', JSON.stringify(req.query, null, 2));
-    
-    // Handle Twitch verification challenge
     if (req.query && req.query['hub.challenge']) {
-      // Legacy WebSub verification
       const challenge = req.query['hub.challenge'];
-      console.log('Responding to Twitch WebSub verification challenge:', challenge);
       res.status(200).send(challenge);
     } else if (req.headers['twitch-eventsub-message-type'] === 'webhook_callback_verification') {
-      // EventSub verification
       try {
         const body = req.body;
-        console.log('Received EventSub verification challenge:', JSON.stringify(body, null, 2));
         
         if (body && body.challenge) {
-          console.log('Responding with EventSub challenge:', body.challenge);
           res.status(200).send(body.challenge);
         } else {
           console.error('No challenge found in EventSub verification request');
@@ -128,13 +103,8 @@ function setupWebhookEndpoint(app) {
 
   // Use raw body parser for all webhook requests to properly verify signatures
   app.post('/webhook/twitch', express.raw({ type: 'application/json' }), async (req, res) => {
-    console.log('Received webhook request from Twitch');
-    console.log('Headers:', JSON.stringify(req.headers, null, 2));
-    
     // For all requests, req.body is a Buffer
     const body = req.body.toString();
-    console.log('Webhook body:', body);
-    
     // Parse the JSON body
     let notification;
     try {
@@ -146,13 +116,8 @@ function setupWebhookEndpoint(app) {
     
     // Get the message type
     const messageType = req.headers['twitch-eventsub-message-type'];
-    console.log('Message type:', messageType);
-    
     // Handle verification challenge
     if (messageType === 'webhook_callback_verification') {
-      console.log('Received verification challenge request');
-      console.log('Challenge:', notification.challenge);
-      
       if (notification.challenge) {
         // Return the challenge exactly as specified by Twitch
         return res.set('Content-Type', 'text/plain').status(200).send(notification.challenge);
@@ -178,24 +143,15 @@ function setupWebhookEndpoint(app) {
       .update(hmacMessage)
       .digest('hex');
     
-    console.log('Computed signature:', signature);
-    console.log('Received signature:', messageSignature);
-    
     // Verify the signature
     if (signature !== messageSignature) {
-      console.error('Signature verification failed');
       return res.status(403).send('Signature verification failed');
     }
-    
-    // Notification is already parsed above
-    console.log('Parsed notification:', JSON.stringify(notification, null, 2));
     
     // Handle the notification based on message type
     if (messageType === 'notification') {
       try {
-        console.log('Processing event notification');
         await handleEventNotification(notification);
-        console.log('Successfully processed event notification');
       } catch (error) {
         console.error('Error handling notification:', error);
         // Still return 200 to acknowledge receipt
@@ -390,31 +346,6 @@ async function handleEventNotification(notification) {
       
       console.log(`Song request from ${username}: ${input}`);
       await handleSongRequest(username, input);
-    }
-  } else if (eventType === 'channel.follow') {
-    // For testing purposes, treat a follow from belbelbot as a song request trigger
-    
-    const event = notification.event;
-    const username = event.user_login;
-    const userId = event.user_id;
-    const followedAt = event.followed_at;
-    const broadcasterName = event.broadcaster_user_name;
-    
-    console.log(`Follow event details: User ${username} (ID: ${userId}) followed ${broadcasterName} at ${followedAt}`);
-    
-    // For testing, only process follows from belbelbot
-    if (username === 'belbelbot') {
-      console.log(`Follow from test user ${username} detected, adding default song`);
-      try {
-        // Use a default song when belbelbot follows
-        const input = 'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT'; // Default song
-        await handleSongRequest(username, input);
-        console.log('Successfully added song to queue after follow event');
-      } catch (error) {
-        console.error('Error adding song to queue after follow event:', error);
-      }
-    } else {
-      console.log(`Follow from ${username} detected, but not test user. Ignoring.`);
     }
   }
 }
