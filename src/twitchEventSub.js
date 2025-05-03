@@ -286,16 +286,45 @@ async function subscribeToChannelPointRedemptions(callbackUrl) {
       throw new Error('No Twitch app access token available');
     }
     
-    // Ensure we have a webhook secret
-    if (!webhookSecret) {
-      webhookSecret = crypto.randomBytes(16).toString('hex');
-      console.log('Generated new webhook secret for channel point redemption subscription');
-    }
-    
     // Check if userId is initialized
     if (!userId) {
       userId = await getUserId(TWITCH_CHANNEL);
       console.log(`Resolved Twitch channel ${TWITCH_CHANNEL} to user ID: ${userId}`);
+    }
+    
+    // First, check if we already have an active subscription for this event type
+    console.log('Checking for existing EventSub subscriptions...');
+    const existingSubscriptions = await checkSubscriptionStatus();
+    
+    // Look for an existing subscription for channel point redemptions
+    const existingSubscription = existingSubscriptions.find(sub => 
+      sub.type === 'channel.channel_points_custom_reward_redemption.add' && 
+      sub.condition.broadcaster_user_id === userId
+    );
+    
+    if (existingSubscription) {
+      console.log(`Found existing subscription with ID: ${existingSubscription.id}`);
+      console.log('Using existing subscription instead of creating a new one');
+      
+      // Use the existing subscription ID
+      subscriptionId = existingSubscription.id;
+      
+      // Important: We need to use the same webhook secret that was used when creating this subscription
+      // Unfortunately, Twitch doesn't return the secret in the API response for security reasons
+      // So we'll continue using our current webhook secret and hope it matches
+      // If it doesn't match, we'll need to delete the subscription and create a new one
+      console.log('Note: Using existing webhook secret. If signature verification fails, you may need to delete the subscription.');
+      
+      return subscriptionId;
+    }
+    
+    // No existing subscription found, create a new one
+    console.log('No existing subscription found. Creating a new one...');
+    
+    // Ensure we have a webhook secret for the new subscription
+    if (!webhookSecret) {
+      webhookSecret = crypto.randomBytes(16).toString('hex');
+      console.log('Generated new webhook secret for channel point redemption subscription');
     }
     
     console.log(`Attempting to subscribe to channel point redemptions for user ID: ${userId}`);
@@ -338,6 +367,22 @@ async function subscribeToChannelPointRedemptions(callbackUrl) {
       if (error.response.status === 403) {
         console.error('403 Forbidden: This usually means your Twitch token does not have the necessary permissions.');
         console.error('Make sure you have authenticated with the channel:read:redemptions scope.');
+      }
+      
+      // If we get a 409 Conflict (subscription already exists), try to use the existing subscription
+      if (error.response.status === 409) {
+        console.log('Subscription already exists. Attempting to use existing subscription...');
+        const existingSubscriptions = await checkSubscriptionStatus();
+        const existingSubscription = existingSubscriptions.find(sub => 
+          sub.type === 'channel.channel_points_custom_reward_redemption.add' && 
+          sub.condition.broadcaster_user_id === userId
+        );
+        
+        if (existingSubscription) {
+          console.log(`Using existing subscription with ID: ${existingSubscription.id}`);
+          subscriptionId = existingSubscription.id;
+          return subscriptionId;
+        }
       }
     }
     throw error;
