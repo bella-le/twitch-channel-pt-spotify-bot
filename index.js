@@ -5,8 +5,6 @@ const twitchEventSub = require('./src/twitchEventSub');
 const spotifyClient = require('./src/spotifyClient');
 const authRoutes = require('./src/authRoutes');
 const setupTestRoutes = require('./src/testRoutes');
-const queueStore = require('./src/queueStore');
-const sheetsManager = require('./src/sheetsManager');
 
 const app = express();
 const PORT = process.env.PORT || 8888;
@@ -28,14 +26,9 @@ app.use('/', authRoutes);
 // Setup test routes
 setupTestRoutes(app);
 
-// Home route (now the queue page)
+// Home route
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Streamer auth page (hidden from public)
-app.get('/auth-streamer', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'auth-streamer.html'));
 });
 
 // Status endpoint
@@ -43,15 +36,8 @@ app.get('/api/status', (req, res) => {
   const twitchAuth = require('./src/twitchAuth');
   res.json({
     spotify: spotifyClient.isInitialized() ? 'connected' : 'disconnected',
-    twitch: twitchAuth.isInitialized() ? 'connected' : 'disconnected',
-    sheets: sheetsManager.isInitialized() ? 'connected' : 'disconnected'
+    twitch: twitchAuth.isInitialized() ? 'connected' : 'disconnected'
   });
-});
-
-// Queue data endpoint
-app.get('/api/queue', (req, res) => {
-  const queueData = queueStore.getQueueData();
-  res.json(queueData);
 });
 
 // Simple health check endpoint
@@ -124,34 +110,13 @@ if (process.env.TWITCH_CLIENT_ID && process.env.TWITCH_CLIENT_SECRET && process.
 // Initialize services
 async function initializeServices() {
   try {
-    // Initialize Spotify client
+    // Initialize Spotify client first to ensure authentication
     await spotifyClient.initialize();
     
-    // Initialize Twitch EventSub integration
-    await twitchEventSub.initialize(spotifyClient, app);
-    
-    // Initialize Google Sheets integration (if configured)
-    if (process.env.GOOGLE_SPREADSHEET_ID && 
-        process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && 
-        process.env.GOOGLE_PRIVATE_KEY) {
-      try {
-        const initialized = await sheetsManager.initialize();
-        if (initialized) {
-          console.log('Google Sheets integration initialized successfully');
-        } else {
-          console.log('Google Sheets integration failed to initialize');
-        }
-      } catch (sheetsError) {
-        console.error('Error initializing Google Sheets:', sheetsError);
-        // Continue even if Google Sheets initialization fails
-      }
-    } else {
-      console.log('Google Sheets credentials not set, skipping initialization');
-    }
-    
-    console.log('Services initialized successfully');
+    // Note: Twitch EventSub is now initialized separately with proper user authentication
   } catch (error) {
-    console.error('Error initializing services:', error);
+    console.error('Failed to initialize services:', error);
+    process.exit(1);
   }
 }
 

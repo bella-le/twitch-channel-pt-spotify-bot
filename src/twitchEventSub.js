@@ -2,8 +2,6 @@ const express = require('express');
 const crypto = require('crypto');
 const axios = require('axios');
 const twitchAuth = require('./twitchAuth');
-const queueStore = require('./queueStore');
-const sheetsManager = require('./sheetsManager');
 
 // Configuration
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
@@ -188,35 +186,7 @@ async function handleSongRequest(username, message) {
     const result = await spotifyClient.addSongToQueue(message);
     
     if (result.success) {
-      // Create song data object
-      const songData = {
-        username,
-        trackName: result.trackName,
-        artistName: result.artistName,
-        trackId: result.trackId,
-        requestedAt: new Date()
-      };
-      
-      // Add to in-app queue tracking system
-      const position = queueStore.addSongToQueue(songData);
-      
-      // Add to Google Sheets leaderboards if initialized
-      if (sheetsManager.isInitialized()) {
-        try {
-          // Update user leaderboard in Google Sheets
-          await sheetsManager.updateUserLeaderboard(username, songData.requestedAt.toLocaleString());
-          
-          // Update song leaderboard in Google Sheets when queued
-          await sheetsManager.updateSongLeaderboard(songData);
-          
-          console.log('Updated Google Sheets leaderboards');
-        } catch (sheetsError) {
-          console.error('Error updating Google Sheets:', sheetsError);
-          // Continue even if Google Sheets update fails
-        }
-      }
-      
-      console.log(`Added song "${result.trackName}" by ${result.artistName} to queue at position ${position}`);
+      console.log(`Added song "${result.trackName}" by ${result.artistName} to queue`);
     } else {
       console.error(`Failed to add song: ${result.error}`);
     }
