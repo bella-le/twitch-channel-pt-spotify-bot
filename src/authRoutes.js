@@ -59,6 +59,7 @@ router.get('/callback', async (req, res) => {
               <h1>Authentication Successful!</h1>
               <p>You have successfully authenticated with Spotify. You can now close this window and return to the application.</p>
               <p>Your Twitch channel points song request bot is now ready to use!</p>
+              <a href="/" class="button">Return to Dashboard</a>
             </div>
           </body>
         </html>

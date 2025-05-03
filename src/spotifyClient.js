@@ -2,6 +2,8 @@ const SpotifyWebApi = require('spotify-web-api-node');
 const fs = require('fs');
 const path = require('path');
 const open = require('open');
+const queueStore = require('./queueStore');
+const sheetsManager = require('./sheetsManager');
 
 // Token storage path - use environment variable if available for cloud deployment
 const TOKEN_PATH = process.env.TOKEN_PATH || path.join(__dirname, '..', 'tokens.json');
@@ -21,71 +23,93 @@ const SCOPES = [
 ];
 
 // Create a new Spotify API client
-const spotifyApi = new SpotifyWebApi({
-  clientId: process.env.SPOTIFY_CLIENT_ID,
-  clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-  redirectUri: process.env.SPOTIFY_REDIRECT_URI
-});
+let spotifyApi = null;
 
+// Is the client initialized?
 let initialized = false;
+
+// Interval for checking currently playing track
+let currentlyPlayingInterval = null;
 
 /**
  * Initialize the Spotify client
  */
 async function initialize() {
-  if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
-    throw new Error('Spotify client ID or client secret not set in environment variables');
-  }
+  return new Promise(async (resolve) => {
+    // Clear any existing interval
+    if (currentlyPlayingInterval) {
+      clearInterval(currentlyPlayingInterval);
+    }
 
-  try {
-    // First check if we have tokens in environment variables (for cloud deployment)
-    if (storedAccessToken && storedRefreshToken) {
-      console.log('Found Spotify tokens in environment variables');
-      spotifyApi.setAccessToken(storedAccessToken);
-      spotifyApi.setRefreshToken(storedRefreshToken);
-      
-      // Check if the access token is still valid
-      try {
-        await spotifyApi.getMe();
-        console.log('Successfully authenticated with Spotify using environment tokens');
-        initialized = true;
-        return;
-      } catch (error) {
-        console.log('Environment access token expired, refreshing...');
-        await refreshAccessToken();
-        initialized = true;
-        return;
-      }
+    if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
+      throw new Error('Spotify client ID or client secret not set in environment variables');
     }
-    // Then check if we have stored tokens in file
-    else if (fs.existsSync(TOKEN_PATH)) {
-      const tokens = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'));
-      
-      // Set the access token
-      spotifyApi.setAccessToken(tokens.accessToken);
-      spotifyApi.setRefreshToken(tokens.refreshToken);
-      
-      // Check if the access token is still valid
-      try {
-        await spotifyApi.getMe();
-        console.log('Successfully authenticated with Spotify using stored tokens');
-        initialized = true;
-        return;
-      } catch (error) {
-        console.log('Stored access token expired, refreshing...');
-        await refreshAccessToken();
-        initialized = true;
-        return;
+
+    try {
+      // First check if we have tokens in environment variables (for cloud deployment)
+      if (storedAccessToken && storedRefreshToken) {
+        console.log('Found Spotify tokens in environment variables');
+        spotifyApi = new SpotifyWebApi({
+          clientId: process.env.SPOTIFY_CLIENT_ID,
+          clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+          redirectUri: process.env.SPOTIFY_REDIRECT_URI,
+          accessToken: storedAccessToken,
+          refreshToken: storedRefreshToken
+        });
+
+        // Check if the access token is still valid
+        try {
+          await spotifyApi.getMe();
+          console.log('Successfully authenticated with Spotify using environment tokens');
+          initialized = true;
+          startTrackingCurrentlyPlaying();
+          resolve(true);
+        } catch (error) {
+          console.log('Environment access token expired, refreshing...');
+          await refreshAccessToken();
+          initialized = true;
+          startTrackingCurrentlyPlaying();
+          resolve(true);
+        }
       }
-    } else {
-      console.log('No stored tokens found. Please authenticate with Spotify.');
-      console.log(`Please visit: ${getAuthorizationUrl()}`);
-      console.log('After authentication, the tokens will be stored automatically.');
+      // Then check if we have stored tokens in file
+      else if (fs.existsSync(TOKEN_PATH)) {
+        const tokens = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'));
+
+        // Set the access token
+        spotifyApi = new SpotifyWebApi({
+          clientId: process.env.SPOTIFY_CLIENT_ID,
+          clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+          redirectUri: process.env.SPOTIFY_REDIRECT_URI,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken
+        });
+
+        // Check if the access token is still valid
+        try {
+          await spotifyApi.getMe();
+          console.log('Successfully authenticated with Spotify using stored tokens');
+          initialized = true;
+          startTrackingCurrentlyPlaying();
+          resolve(true);
+        } catch (error) {
+          console.log('Stored access token expired, refreshing...');
+          await refreshAccessToken();
+          initialized = true;
+          startTrackingCurrentlyPlaying();
+          resolve(true);
+        }
+      } else {
+        console.log('No stored tokens found. Please authenticate with Spotify.');
+        console.log(`Please visit: ${getAuthorizationUrl()}`);
+        console.log('After authentication, the tokens will be stored automatically.');
+        resolve(false);
+      }
+    } catch (error) {
+      console.error('Error initializing Spotify client:', error);
+      throw error;
     }
-  } catch (error) {
-    console.error('Error initializing Spotify client:', error);
-    throw error;
-  }
+  });
 }
 
 /**
@@ -103,23 +127,23 @@ function getAuthorizationUrl() {
 async function handleCallback(code) {
   try {
     const data = await spotifyApi.authorizationCodeGrant(code);
-    
+
     // Save the access token and refresh token
     spotifyApi.setAccessToken(data.body.access_token);
     spotifyApi.setRefreshToken(data.body.refresh_token);
-    
+
     // Store tokens for future use
     const tokens = {
       accessToken: data.body.access_token,
       refreshToken: data.body.refresh_token,
       expiresAt: Date.now() + (data.body.expires_in * 1000)
     };
-    
+
     // Update our in-memory variables
     storedAccessToken = tokens.accessToken;
     storedRefreshToken = tokens.refreshToken;
     tokenExpiresAt = tokens.expiresAt;
-    
+
     // Store to file if possible (may not work in cloud environments with ephemeral filesystems)
     try {
       fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens, null, 2));
@@ -127,10 +151,11 @@ async function handleCallback(code) {
     } catch (error) {
       console.log('Could not store tokens to file, but they are stored in memory:', error.message);
     }
-    
+
     console.log('Successfully authenticated with Spotify');
-    
+
     initialized = true;
+    startTrackingCurrentlyPlaying();
     return { success: true };
   } catch (error) {
     console.error('Error handling Spotify callback:', error);
@@ -144,14 +169,14 @@ async function handleCallback(code) {
 async function refreshAccessToken() {
   try {
     const data = await spotifyApi.refreshAccessToken();
-    
+
     // Update the access token
     spotifyApi.setAccessToken(data.body.access_token);
-    
+
     // Update in-memory tokens
     storedAccessToken = data.body.access_token;
     tokenExpiresAt = Date.now() + (data.body.expires_in * 1000);
-    
+
     // Update the stored tokens in file if possible
     try {
       if (fs.existsSync(TOKEN_PATH)) {
@@ -163,7 +188,7 @@ async function refreshAccessToken() {
     } catch (error) {
       console.log('Could not update token file, but tokens are updated in memory:', error.message);
     }
-    
+
     console.log('Successfully refreshed Spotify access token');
     return true;
   } catch (error) {
@@ -220,19 +245,19 @@ async function addSongToQueue(query) {
     if (!initialized) {
       throw new Error('Spotify client is not initialized');
     }
-    
+
     // Check if we need to refresh the token
     const tokens = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'));
     if (Date.now() > tokens.expiresAt) {
       await refreshAccessToken();
     }
-    
+
     // Get track info based on query type
     let trackId, trackName, artistName;
-    
+
     // Extract Spotify track link from the query (which might contain additional text)
     let spotifyLink = null;
-    
+
     // Check for Spotify URI format (spotify:track:1234567890)
     const uriMatch = query.match(/spotify:track:([a-zA-Z0-9]+)/);
     if (uriMatch && uriMatch[1]) {
@@ -240,7 +265,7 @@ async function addSongToQueue(query) {
       trackId = uriMatch[1]; // The ID portion
       console.log(`Found Spotify URI in message: ${spotifyLink}`);
     }
-    
+
     // Check for Spotify URL format (https://open.spotify.com/track/1234567890)
     if (!spotifyLink) {
       const urlMatch = query.match(/https?:\/\/open\.spotify\.com\/(intl-[a-z]{2}\/)?track\/([a-zA-Z0-9]+)(\?[^\s]*)?/);
@@ -250,10 +275,10 @@ async function addSongToQueue(query) {
         console.log(`Found Spotify URL in message: ${spotifyLink}`);
       }
     }
-    
+
     // If we found a Spotify link, proceed with getting track info
     if (trackId) {
-      
+
       // Get track info
       const track = await spotifyApi.getTrack(trackId);
       trackName = track.body.name;
@@ -261,17 +286,17 @@ async function addSongToQueue(query) {
     } else {
       // Treat as a search query
       const searchResults = await spotifyApi.searchTracks(query, { limit: 1 });
-      
+
       if (searchResults.body.tracks.items.length === 0) {
         throw new Error('No tracks found matching the query');
       }
-      
+
       const track = searchResults.body.tracks.items[0];
       trackId = track.id;
       trackName = track.name;
       artistName = track.artists.map(artist => artist.name).join(', ');
     }
-    
+
     // Try to add the track to the queue
     try {
       await spotifyApi.addToQueue(`spotify:track:${trackId}`);
@@ -279,24 +304,24 @@ async function addSongToQueue(query) {
       // If no active device is found, try to transfer playback to the last active device
       if (error.body && error.body.error && error.body.error.reason === 'NO_ACTIVE_DEVICE') {
         console.log('No active device found. Attempting to transfer playback...');
-        
+
         // Get available devices
         const devices = await getDevices();
-        
+
         if (devices.length === 0) {
           throw new Error('No Spotify devices available. Please open Spotify on a device.');
         }
-        
+
         // Find the first available device (preferably one that was recently active)
         const availableDevice = devices.find(device => device.is_active) || devices[0];
-        
+
         // Transfer playback to the device
         const transferred = await transferPlayback(availableDevice.id);
-        
+
         if (!transferred) {
           throw new Error('Failed to transfer playback to available device');
         }
-        
+
         // Try adding to queue again after transfer
         await spotifyApi.addToQueue(`spotify:track:${trackId}`);
         console.log(`Successfully transferred playback to ${availableDevice.name} and added song to queue`);
@@ -305,11 +330,24 @@ async function addSongToQueue(query) {
         throw error;
       }
     }
-    
+
+    // Store the song in our queue tracking system
+    const songData = {
+      username: '', // Will be set by the handler function
+      trackName,
+      artistName,
+      trackId,
+      requestedAt: new Date()
+    };
+
+    // Note: We don't call queueStore.addSongToQueue here because we need the username
+    // The twitchEventSub.js will handle adding to queue store with username
+
     return {
       success: true,
       trackName,
-      artistName
+      artistName,
+      trackId
     };
   } catch (error) {
     console.error('Error adding song to queue:', error);
@@ -320,12 +358,57 @@ async function addSongToQueue(query) {
   }
 }
 
+/**
+ * Start tracking the currently playing song
+ */
+function startTrackingCurrentlyPlaying() {
+  // Check immediately on startup
+  updateCurrentlyPlaying();
+
+  // Then check every 15 seconds
+  currentlyPlayingInterval = setInterval(updateCurrentlyPlaying, 15000);
+}
+
+/**
+ * Update the currently playing song in the queue store and Google Sheets
+ */
+async function updateCurrentlyPlaying() {
+  if (!initialized) return;
+
+  try {
+    const response = await spotifyApi.getMyCurrentPlayingTrack();
+
+    // If nothing is playing or no response
+    if (!response || !response.body || !response.body.item) {
+      queueStore.updateCurrentlyPlaying(null);
+      return;
+    }
+
+    const track = response.body.item;
+    const currentlyPlaying = {
+      trackName: track.name,
+      artistName: track.artists.map(artist => artist.name).join(', '),
+      trackId: track.id,
+      username: 'Unknown', // We don't know who requested it if we just started tracking
+      requestedAt: new Date()
+    };
+
+    // Update the in-app queue store only
+    queueStore.updateCurrentlyPlaying(currentlyPlaying);
+  } catch (error) {
+    console.error('Error updating currently playing song:', error.message);
+  }
+}
+
 module.exports = {
   initialize,
   getAuthorizationUrl,
   handleCallback,
+  refreshAccessToken,
   isInitialized,
-  addSongToQueue,
   getDevices,
-  transferPlayback
+  transferPlayback,
+  addSongToQueue,
+  startTrackingCurrentlyPlaying,
+  updateCurrentlyPlaying
 };
