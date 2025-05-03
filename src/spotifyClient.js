@@ -308,6 +308,7 @@ async function addSongToQueue(query) {
     
     return {
       success: true,
+      trackId,
       trackName,
       artistName
     };

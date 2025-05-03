@@ -114,6 +114,9 @@ async function initializeServices() {
     await spotifyClient.initialize();
     
     // Note: Twitch EventSub is now initialized separately with proper user authentication
+    
+    // Initialize Google Sheets for leaderboards
+    // This is now handled in twitchEventSub.initialize() to ensure proper sequencing
   } catch (error) {
     console.error('Failed to initialize services:', error);
     process.exit(1);

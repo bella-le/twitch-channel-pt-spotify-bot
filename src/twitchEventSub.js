@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const axios = require('axios');
 const twitchAuth = require('./twitchAuth');
+const sheetsManager = require('./sheetsManager');
 
 // Configuration
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
@@ -25,9 +26,22 @@ async function initialize(spotify, app) {
 
   spotifyClient = spotify;
   
-  // Always set up the webhook endpoint regardless of authentication status
+  // Set up the webhook endpoint
   webhookSecret = crypto.randomBytes(16).toString('hex');
   setupWebhookEndpoint(app);
+  
+  // Initialize Google Sheets for tracking song requests
+  try {
+    const sheetsInitialized = await sheetsManager.initialize();
+    if (sheetsInitialized) {
+      console.log('Google Sheets integration initialized successfully');
+    } else {
+      console.warn('Google Sheets integration initialization failed');
+    }
+  } catch (error) {
+    console.error('Error initializing Google Sheets:', error);
+    // Continue with initialization even if Google Sheets fails
+  }
   
   try {
     const authInitialized = await twitchAuth.initialize();
@@ -257,6 +271,27 @@ async function handleSongRequest(username, message) {
     
     if (result.success) {
       console.log(`Added song "${result.trackName}" by ${result.artistName} to queue`);
+      
+      // Update Google Sheets leaderboards
+      if (sheetsManager.isInitialized()) {
+        try {
+          // Update song leaderboard
+          await sheetsManager.updateSongLeaderboard({
+            trackId: result.trackId,
+            trackName: result.trackName,
+            artistName: result.artistName
+          });
+          
+          // Update user leaderboard
+          await sheetsManager.updateUserLeaderboard(username, new Date().toLocaleString());
+          
+          console.log(`Updated leaderboards for song request by ${username}`);
+        } catch (sheetsError) {
+          console.error('Error updating leaderboards:', sheetsError);
+        }
+      } else {
+        console.warn('Google Sheets not initialized, skipping leaderboard updates');
+      }
     } else {
       console.error(`Failed to add song: ${result.error}`);
     }
