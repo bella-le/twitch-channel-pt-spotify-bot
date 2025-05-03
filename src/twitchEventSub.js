@@ -211,9 +211,6 @@ function setupWebhookEndpoint(app) {
       return res.status(403).send('Signature verification failed');
     }
     
-    // Notification is already parsed above
-    console.log('Parsed notification:', JSON.stringify(notification, null, 2));
-    
     // Handle the notification based on message type
     if (messageType === 'notification') {
       try {
