@@ -28,6 +28,20 @@ let spotifyApi = null;
 // Is the client initialized?
 let initialized = false;
 
+// Initialize the Spotify API client with credentials
+function createSpotifyApiClient() {
+  if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
+    console.error('Missing Spotify credentials in environment variables');
+    return null;
+  }
+  
+  return new SpotifyWebApi({
+    clientId: process.env.SPOTIFY_CLIENT_ID,
+    clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+    redirectUri: process.env.SPOTIFY_REDIRECT_URI
+  });
+}
+
 // Interval for checking currently playing track
 let currentlyPlayingInterval = null;
 
@@ -43,6 +57,12 @@ async function initialize() {
 
     if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
       throw new Error('Spotify client ID or client secret not set in environment variables');
+    }
+    
+    // Create the Spotify API client
+    spotifyApi = createSpotifyApiClient();
+    if (!spotifyApi) {
+      throw new Error('Failed to create Spotify API client');
     }
 
     try {
@@ -117,6 +137,12 @@ async function initialize() {
  * @returns {string} The authorization URL
  */
 function getAuthorizationUrl() {
+  if (!spotifyApi) {
+    spotifyApi = createSpotifyApiClient();
+    if (!spotifyApi) {
+      throw new Error('Failed to create Spotify API client');
+    }
+  }
   return spotifyApi.createAuthorizeURL(SCOPES, 'state');
 }
 
