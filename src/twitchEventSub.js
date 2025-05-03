@@ -92,6 +92,32 @@ function setupWebhookEndpoint(app) {
     }
   });
   
+  // Add an endpoint to force recreate subscriptions
+  app.post('/webhook/twitch/recreate-subscriptions', express.json(), async (req, res) => {
+    console.log('Received request to recreate subscriptions');
+    
+    try {
+      // Get the base URL from the request
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+      const host = req.headers['x-forwarded-host'] || req.headers.host;
+      const baseUrl = `${protocol}://${host}`;
+      
+      console.log(`Using base URL: ${baseUrl}`);
+      
+      // Delete all existing subscriptions and create new ones
+      await setupEventSubForDeployment(baseUrl, true);
+      
+      res.status(200).json({ 
+        status: 'ok', 
+        message: 'Subscriptions recreated successfully',
+        webhookSecret: webhookSecret
+      });
+    } catch (error) {
+      console.error('Error recreating subscriptions:', error);
+      res.status(500).json({ status: 'error', message: error.message });
+    }
+  });
+  
   // Handle GET requests for webhook verification
   app.get('/webhook/twitch', (req, res) => {
     console.log('Received GET request to webhook endpoint');
@@ -275,9 +301,10 @@ async function getUserId(username) {
 /**
  * Subscribe to channel point redemption events
  * @param {string} callbackUrl - The webhook callback URL
+ * @param {boolean} forceRecreate - Whether to force delete and recreate the subscription
  * @returns {string} The subscription ID
  */
-async function subscribeToChannelPointRedemptions(callbackUrl) {
+async function subscribeToChannelPointRedemptions(callbackUrl, forceRecreate = false) {
   try {
     // Use app access token for EventSub subscriptions as required by Twitch API
     const accessToken = await twitchAuth.getAppAccessToken();
@@ -292,40 +319,44 @@ async function subscribeToChannelPointRedemptions(callbackUrl) {
       console.log(`Resolved Twitch channel ${TWITCH_CHANNEL} to user ID: ${userId}`);
     }
     
-    // First, check if we already have an active subscription for this event type
-    console.log('Checking for existing EventSub subscriptions...');
-    const existingSubscriptions = await checkSubscriptionStatus();
-    
-    // Look for an existing subscription for channel point redemptions
-    const existingSubscription = existingSubscriptions.find(sub => 
-      sub.type === 'channel.channel_points_custom_reward_redemption.add' && 
-      sub.condition.broadcaster_user_id === userId
-    );
-    
-    if (existingSubscription) {
-      console.log(`Found existing subscription with ID: ${existingSubscription.id}`);
-      console.log('Using existing subscription instead of creating a new one');
+    // If forceRecreate is true, delete any existing subscriptions first
+    if (forceRecreate) {
+      console.log('Force recreate flag is set. Deleting any existing channel point subscriptions...');
+      await deleteAllChannelPointSubscriptions();
+    } else {
+      // Check if we already have an active subscription for this event type
+      console.log('Checking for existing EventSub subscriptions...');
+      const existingSubscriptions = await checkSubscriptionStatus();
       
-      // Use the existing subscription ID
-      subscriptionId = existingSubscription.id;
+      // Look for an existing subscription for channel point redemptions
+      const existingSubscription = existingSubscriptions.find(sub => 
+        sub.type === 'channel.channel_points_custom_reward_redemption.add' && 
+        sub.condition.broadcaster_user_id === userId
+      );
       
-      // Important: We need to use the same webhook secret that was used when creating this subscription
-      // Unfortunately, Twitch doesn't return the secret in the API response for security reasons
-      // So we'll continue using our current webhook secret and hope it matches
-      // If it doesn't match, we'll need to delete the subscription and create a new one
-      console.log('Note: Using existing webhook secret. If signature verification fails, you may need to delete the subscription.');
-      
-      return subscriptionId;
+      if (existingSubscription) {
+        console.log(`Found existing subscription with ID: ${existingSubscription.id}`);
+        console.log('Using existing subscription instead of creating a new one');
+        
+        // Use the existing subscription ID
+        subscriptionId = existingSubscription.id;
+        
+        // Important: We need to use the same webhook secret that was used when creating this subscription
+        // Unfortunately, Twitch doesn't return the secret in the API response for security reasons
+        // So we'll continue using our current webhook secret and hope it matches
+        // If it doesn't match, we'll need to delete the subscription and create a new one
+        console.log('Note: Using existing webhook secret. If signature verification fails, you may need to delete the subscription.');
+        
+        return subscriptionId;
+      }
     }
     
-    // No existing subscription found, create a new one
-    console.log('No existing subscription found. Creating a new one...');
+    // No existing subscription found or we're forcing recreation, create a new one
+    console.log('Creating a new subscription...');
     
-    // Ensure we have a webhook secret for the new subscription
-    if (!webhookSecret) {
-      webhookSecret = crypto.randomBytes(16).toString('hex');
-      console.log('Generated new webhook secret for channel point redemption subscription');
-    }
+    // Generate a new webhook secret for the new subscription
+    webhookSecret = crypto.randomBytes(16).toString('hex');
+    console.log('Generated new webhook secret for channel point redemption subscription');
     
     console.log(`Attempting to subscribe to channel point redemptions for user ID: ${userId}`);
     console.log(`Using callback URL: ${callbackUrl}`);
@@ -355,6 +386,7 @@ async function subscribeToChannelPointRedemptions(callbackUrl) {
     
     subscriptionId = response.data.data[0].id;
     console.log(`Subscribed to channel point redemptions with ID: ${subscriptionId}`);
+    console.log(`Using webhook secret: ${webhookSecret}`);
     return subscriptionId;
   } catch (error) {
     console.error('Error subscribing to channel point redemptions:');
@@ -369,20 +401,12 @@ async function subscribeToChannelPointRedemptions(callbackUrl) {
         console.error('Make sure you have authenticated with the channel:read:redemptions scope.');
       }
       
-      // If we get a 409 Conflict (subscription already exists), try to use the existing subscription
+      // If we get a 409 Conflict (subscription already exists), try to delete and recreate
       if (error.response.status === 409) {
-        console.log('Subscription already exists. Attempting to use existing subscription...');
-        const existingSubscriptions = await checkSubscriptionStatus();
-        const existingSubscription = existingSubscriptions.find(sub => 
-          sub.type === 'channel.channel_points_custom_reward_redemption.add' && 
-          sub.condition.broadcaster_user_id === userId
-        );
-        
-        if (existingSubscription) {
-          console.log(`Using existing subscription with ID: ${existingSubscription.id}`);
-          subscriptionId = existingSubscription.id;
-          return subscriptionId;
-        }
+        console.log('Subscription already exists but we got a conflict. Deleting and recreating...');
+        await deleteAllChannelPointSubscriptions();
+        // Try again with forceRecreate=true to avoid infinite recursion
+        return subscribeToChannelPointRedemptions(callbackUrl, true);
       }
     }
     throw error;
@@ -392,8 +416,9 @@ async function subscribeToChannelPointRedemptions(callbackUrl) {
 /**
  * Set up the EventSub subscription for a deployed application
  * @param {string} baseUrl - The base URL of the deployed application
+ * @param {boolean} forceRecreate - Whether to force delete and recreate the subscription
  */
-async function setupEventSubForDeployment(baseUrl) {
+async function setupEventSubForDeployment(baseUrl, forceRecreate = false) {
   if (!baseUrl) {
     throw new Error('Base URL is required for EventSub setup');
   }
@@ -408,7 +433,7 @@ async function setupEventSubForDeployment(baseUrl) {
   
   try {
     // Subscribe to channel point redemption events
-    await subscribeToChannelPointRedemptions(callbackUrl);
+    await subscribeToChannelPointRedemptions(callbackUrl, forceRecreate);
     console.log(`EventSub webhook set up with callback URL: ${callbackUrl}`);
     return true;
   } catch (error) {
@@ -487,16 +512,78 @@ async function checkSubscriptionStatus() {
       }
     );
     
-    return response.data.data;
+    console.log(`Found ${response.data.data.length} active subscriptions`);
+    response.data.data.forEach(sub => {
+      console.log(`- Subscription ID: ${sub.id}, Type: ${sub.type}, Status: ${sub.status}`);
+    });
+    
+    return response.data.data || [];
   } catch (error) {
-    console.error('Error checking subscription status:');
-    if (error.response) {
-      console.error('Response status:', error.response.status);
-      console.error('Response data:', JSON.stringify(error.response.data, null, 2));
-    } else {
-      console.error(error);
+    console.error('Error checking subscription status:', error);
+    return [];
+  }
+}
+
+/**
+ * Delete an EventSub subscription
+ * @param {string} subscriptionId - The ID of the subscription to delete
+ * @returns {boolean} Whether the deletion was successful
+ */
+async function deleteSubscription(subscriptionId) {
+  try {
+    const accessToken = await twitchAuth.getAppAccessToken();
+    
+    if (!accessToken) {
+      throw new Error('No Twitch app access token available');
     }
-    throw error;
+    
+    console.log(`Attempting to delete subscription with ID: ${subscriptionId}`);
+    
+    await axios.delete(`https://api.twitch.tv/helix/eventsub/subscriptions?id=${subscriptionId}`, {
+      headers: {
+        'Client-ID': TWITCH_CLIENT_ID,
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+    
+    console.log(`Successfully deleted subscription with ID: ${subscriptionId}`);
+    return true;
+  } catch (error) {
+    console.error(`Error deleting subscription ${subscriptionId}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Delete all existing EventSub subscriptions for channel point redemptions
+ * @returns {boolean} Whether the deletion was successful
+ */
+async function deleteAllChannelPointSubscriptions() {
+  try {
+    const subscriptions = await checkSubscriptionStatus();
+    
+    // Filter for channel point redemption subscriptions
+    const channelPointSubs = subscriptions.filter(sub => 
+      sub.type === 'channel.channel_points_custom_reward_redemption.add'
+    );
+    
+    if (channelPointSubs.length === 0) {
+      console.log('No existing channel point subscriptions found to delete');
+      return true;
+    }
+    
+    console.log(`Found ${channelPointSubs.length} channel point subscriptions to delete`);
+    
+    // Delete each subscription
+    for (const sub of channelPointSubs) {
+      await deleteSubscription(sub.id);
+    }
+    
+    console.log('Successfully deleted all channel point subscriptions');
+    return true;
+  } catch (error) {
+    console.error('Error deleting channel point subscriptions:', error);
+    return false;
   }
 }
 
