@@ -134,24 +134,17 @@ function setupWebhookEndpoint(app) {
   
   // Handle GET requests for webhook verification
   app.get('/webhook/twitch', (req, res) => {
-    console.log('Received GET request to webhook endpoint');
-    console.log('Headers:', JSON.stringify(req.headers, null, 2));
-    console.log('Query:', JSON.stringify(req.query, null, 2));
-    
     // Handle Twitch verification challenge
     if (req.query && req.query['hub.challenge']) {
       // Legacy WebSub verification
       const challenge = req.query['hub.challenge'];
-      console.log('Responding to Twitch WebSub verification challenge:', challenge);
       res.status(200).send(challenge);
     } else if (req.headers['twitch-eventsub-message-type'] === 'webhook_callback_verification') {
       // EventSub verification
       try {
         const body = req.body;
-        console.log('Received EventSub verification challenge:', JSON.stringify(body, null, 2));
         
         if (body && body.challenge) {
-          console.log('Responding with EventSub challenge:', body.challenge);
           res.status(200).send(body.challenge);
         } else {
           console.error('No challenge found in EventSub verification request');
@@ -168,12 +161,8 @@ function setupWebhookEndpoint(app) {
 
   // Use raw body parser for all webhook requests to properly verify signatures
   app.post('/webhook/twitch', express.raw({ type: 'application/json' }), async (req, res) => {
-    console.log('Received webhook request from Twitch');
-    console.log('Headers:', JSON.stringify(req.headers, null, 2));
-    
     // For all requests, req.body is a Buffer
     const body = req.body.toString();
-    console.log('Webhook body:', body);
     
     // Parse the JSON body
     let notification;
@@ -186,13 +175,8 @@ function setupWebhookEndpoint(app) {
     
     // Get the message type
     const messageType = req.headers['twitch-eventsub-message-type'];
-    console.log('Message type:', messageType);
-    
     // Handle verification challenge
     if (messageType === 'webhook_callback_verification') {
-      console.log('Received verification challenge request');
-      console.log('Challenge:', notification.challenge);
-      
       if (notification.challenge) {
         // Return the challenge exactly as specified by Twitch
         return res.set('Content-Type', 'text/plain').status(200).send(notification.challenge);
