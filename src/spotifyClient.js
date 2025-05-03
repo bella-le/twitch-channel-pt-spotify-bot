@@ -243,10 +243,10 @@ async function addSongToQueue(query) {
     
     // Check for Spotify URL format (https://open.spotify.com/track/1234567890)
     if (!spotifyLink) {
-      const urlMatch = query.match(/https?:\/\/open\.spotify\.com\/track\/([a-zA-Z0-9]+)(\?[^\s]*)?/);
-      if (urlMatch && urlMatch[1]) {
+      const urlMatch = query.match(/https?:\/\/open\.spotify\.com\/(intl-[a-z]{2}\/)?track\/([a-zA-Z0-9]+)(\?[^\s]*)?/);
+      if (urlMatch && urlMatch[2]) {
         spotifyLink = urlMatch[0].split('?')[0]; // The URL without query parameters
-        trackId = urlMatch[1]; // The ID portion
+        trackId = urlMatch[2]; // The ID portion is now in capture group 2
         console.log(`Found Spotify URL in message: ${spotifyLink}`);
       }
     }
