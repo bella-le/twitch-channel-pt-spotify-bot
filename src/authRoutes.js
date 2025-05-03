@@ -59,7 +59,7 @@ router.get('/callback', async (req, res) => {
               <h1>Authentication Successful!</h1>
               <p>You have successfully authenticated with Spotify. You can now close this window and return to the application.</p>
               <p>Your Twitch channel points song request bot is now ready to use!</p>
-              <a href="/" class="button">Return to Dashboard</a>
+              <a href="/auth-streamer" class="button">Return to Dashboard</a>
             </div>
           </body>
         </html>
@@ -192,7 +192,7 @@ router.get('/twitch/callback', async (req, res) => {
               <h1>Twitch Authentication Successful!</h1>
               <p>Your bot is now authenticated with Twitch and can listen for channel point redemptions.</p>
               <p>You can close this window and return to the bot dashboard.</p>
-              <a href="/" class="button">Return to Dashboard</a>
+              <a href="/auth-streamer" class="button">Return to Dashboard</a>
             </div>
           </body>
         </html>
@@ -250,7 +250,7 @@ router.get('/twitch/callback', async (req, res) => {
               <h1>Authentication Failed</h1>
               <p>There was an error authenticating with Twitch.</p>
               <p>Error: ${result.error || 'Unknown error'}</p>
-              <a href="/" class="button">Return to Dashboard</a>
+              <a href="/auth-streamer" class="button">Return to Dashboard</a>
             </div>
           </body>
         </html>
@@ -310,7 +310,7 @@ router.get('/twitch/callback', async (req, res) => {
             <h1>Authentication Error</h1>
             <p>There was an error processing your authentication with Twitch.</p>
             <p>Please try again later.</p>
-            <a href="/" class="button">Return to Dashboard</a>
+            <a href="/auth-streamer" class="button">Return to Dashboard</a>
           </div>
         </body>
       </html>
