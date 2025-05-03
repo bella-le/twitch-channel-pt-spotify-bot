@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const spotifyClient = require('./spotifyClient');
 const twitchAuth = require('./twitchAuth');
+const twitchEventSub = require('./twitchEventSub');
+const { v4: uuidv4 } = require('uuid');
+const { getSongLeaderboard, getUserLeaderboard } = require('./sheetsManager');
 
 // Route for initiating Spotify authorization
 router.get('/auth/spotify', (req, res) => {
@@ -140,6 +143,20 @@ router.get('/twitch/callback', async (req, res) => {
     const result = await twitchAuth.handleCallback(code);
     
     if (result.success) {
+      // After successful authentication, recreate the EventSub subscription
+      try {
+        // Get the base URL from the request
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+        const host = req.headers['x-forwarded-host'] || req.headers.host;
+        const baseUrl = `${protocol}://${host}`;
+        
+        console.log('Authentication successful. Recreating EventSub subscriptions...');
+        await twitchEventSub.setupEventSubForDeployment(baseUrl, true);
+        console.log('EventSub subscriptions recreated successfully');
+      } catch (subscriptionError) {
+        console.error('Error recreating EventSub subscriptions:', subscriptionError);
+        // Continue with the authentication flow even if subscription recreation fails
+      }
       res.send(`
         <html>
           <head>
