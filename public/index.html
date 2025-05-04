@@ -237,8 +237,6 @@
           document.getElementById('now-playing').innerHTML = `
             <div class="status-error">
               <h2>❌ Error</h2>
-              <p>${data.error}</p>
-              ${data.authUrl ? `<a href="${data.authUrl}" class="btn">Connect with Spotify</a>` : ''}
             </div>
           `;
           document.getElementById('now-playing').style.display = 'block';
