@@ -75,7 +75,7 @@ async function setupSheets() {
   if (!songLeaderboardSheet) {
     songLeaderboardSheet = await doc.addSheet({
       title: SONG_LEADERBOARD_SHEET_NAME,
-      headerValues: ['Song', 'Artist', 'Play Count', 'Last Played', 'Track ID']
+      headerValues: ['Song', 'Artist', 'Play Count', 'Last Played', 'Track ID', 'Last Queued By']
     });
     console.log(`Created ${SONG_LEADERBOARD_SHEET_NAME} sheet`);
   } else {
@@ -86,7 +86,7 @@ async function setupSheets() {
       console.log(`Loaded headers for ${SONG_LEADERBOARD_SHEET_NAME} sheet`);
     } catch (error) {
       // If there's an error, set the header row
-      await songLeaderboardSheet.setHeaderRow(['Song', 'Artist', 'Play Count', 'Last Played', 'Track ID']);
+      await songLeaderboardSheet.setHeaderRow(['Song', 'Artist', 'Play Count', 'Last Played', 'Track ID', 'Last Queued By']);
       console.log(`Set headers for ${SONG_LEADERBOARD_SHEET_NAME} sheet`);
     }
   }
@@ -162,9 +162,10 @@ async function loadExistingData() {
 /**
  * Update the song leaderboard
  * @param {Object} songData - The song data
+ * @param {string} username - The username of the requester
  * @returns {Promise<boolean>} Whether the update was successful
  */
-async function updateSongLeaderboard(songData) {
+async function updateSongLeaderboard(songData, username = 'Unknown') {
   if (!initialized || !songData || !songData.trackId) {
     console.error('Invalid song data or sheets not initialized');
     return false;
@@ -208,10 +209,11 @@ async function updateSongLeaderboard(songData) {
       // Update the song stats in memory
       songStats[songData.trackId] = newCount;
       
-      // Update the play count and last played date
+      // Update the play count, last played date, and last queued by
       // We need to set the values directly since the column access by name isn't working
       existingRow._rawData[2] = newCount.toString(); // Play Count (3rd column, index 2)
       existingRow._rawData[3] = new Date().toLocaleString(); // Last Played (4th column, index 3)
+      existingRow._rawData[5] = username; // Last Queued By (6th column, index 5)
       
       await existingRow.save();
       console.log(`Updated existing song "${songData.trackName}" in leaderboard, play count: ${newCount}`);
@@ -226,7 +228,8 @@ async function updateSongLeaderboard(songData) {
         'Artist': songData.artistName,
         'Play Count': 1,
         'Last Played': new Date().toLocaleString(),
-        'Track ID': songData.trackId
+        'Track ID': songData.trackId,
+        'Last Queued By': username
       };
       
       await songLeaderboardSheet.addRow(newRow);

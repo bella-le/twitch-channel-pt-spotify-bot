@@ -261,7 +261,7 @@ async function handleSongRequest(username, message) {
             trackId: result.trackId,
             trackName: result.trackName,
             artistName: result.artistName
-          });
+          }, username);
           
           // Update user leaderboard
           await sheetsManager.updateUserLeaderboard(username, new Date().toLocaleString());
