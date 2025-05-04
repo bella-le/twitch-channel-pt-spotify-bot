@@ -248,7 +248,7 @@ async function handleSongRequest(username, message) {
     }
     
     // Process the song request
-    const result = await spotifyClient.addSongToQueue(message);
+    const result = await spotifyClient.addSongToQueue(message, username);
     
     if (result.success) {
       console.log(`Added song "${result.trackName}" by ${result.artistName} to queue`);

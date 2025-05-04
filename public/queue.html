@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spotify Queue</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    
+    .title-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    
+    .title-image {
+      height: 60px;
+      margin-right: 15px;
+    }
+    
+    .container {
+      background-color: white;
+      border-radius: 10px;
+      padding: 30px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    h1 {
+      color: #1DB954; /* Spotify green */
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+
+    
+    .btn {
+      display: inline-block;
+      background-color: #1DB954;
+      color: white;
+      padding: 10px 20px;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+      margin: 10px 5px;
+      cursor: pointer;
+      border: none;
+    }
+    
+    .btn:hover {
+      background-color: #1ed760;
+    }
+    
+    .btn-danger {
+      background-color: #dc3545;
+    }
+    
+    .btn-danger:hover {
+      background-color: #c82333;
+    }
+    
+    .status-success {
+      color: #155724;
+      background-color: #d4edda;
+      border: 1px solid #c3e6cb;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    
+    .status-error {
+      color: #721c24;
+      background-color: #f8d7da;
+      border: 1px solid #f5c6cb;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    
+    .note {
+      font-size: 0.9em;
+      color: #666;
+      margin-top: 5px;
+    }
+    
+    .queue-container {
+      margin-top: 30px;
+    }
+    
+    .now-playing {
+      background-color: #f0f8ff;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      border-left: 5px solid #1DB954;
+    }
+    
+    .track-info {
+      margin: 10px 0;
+      font-size: 1.1em;
+    }
+    
+
+    
+    /* Queue list styles */
+    #upcoming-queue {
+      margin-top: 20px;
+    }
+    
+    .queue-item {
+      padding: 10px 15px;
+      border-bottom: 1px solid #eee;
+      font-size: 1.1em;
+    }
+    
+    .queue-item:hover {
+      background-color: #f9f9f9;
+    }
+    
+    .requester {
+      color: #1DB954;
+      font-weight: bold;
+    }
+    
+    .empty-queue-message {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+      font-style: italic;
+    }
+    
+    .refresh-container {
+      text-align: center;
+      margin: 20px 0;
+    }
+    
+    .last-updated {
+      text-align: center;
+      font-size: 0.8em;
+      color: #999;
+      margin-top: 10px;
+    }
+    
+    footer {
+      margin-top: 50px;
+      text-align: center;
+      font-size: 0.9em;
+      color: #777;
+    }
+    
+    .auto-refresh {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 10px;
+    }
+    
+    .auto-refresh input {
+      margin-right: 5px;
+    }
+    
+    @media (max-width: 600px) {
+      .track-info {
+        flex-direction: column;
+        text-align: center;
+      }
+      
+      .track-image {
+        margin-right: 0;
+        margin-bottom: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="title-container">
+      <img src="/img/squerkJam.gif" alt="Dancing Squerk" class="title-image">
+      <h1>Spotify Queue</h1>
+    </div>
+    
+    <div id="queue-container" class="queue-container">
+      <div id="now-playing" class="now-playing">
+        <h2>Now Playing</h2>
+        <div class="track-info">
+          <p id="current-track-display"></p>
+        </div>
+      </div>
+      
+
+      
+      <div id="upcoming-queue" style="margin-top: 30px;">
+        <h2>Upcoming in Queue</h2>
+        <div id="queue-list"></div>
+      </div>
+    </div>
+    
+    <div class="refresh-container">
+      <button id="refresh-button" class="btn">Refresh Now</button>
+      <div class="last-updated">
+        <span>Auto-refreshes every 10 seconds</span>
+      </div>
+    </div>
+    
+    <p class="note" id="api-note"></p>
+    
+
+  </div>
+  
+  <script>
+    let refreshInterval;
+    
+
+    
+    // Fetch and display the queue
+    async function fetchQueue() {
+      try {
+        const response = await fetch('/api/spotify/queue');
+        const data = await response.json();
+        
+        const queueContainer = document.getElementById('queue-container');
+        const apiNote = document.getElementById('api-note');
+        const queueList = document.getElementById('queue-list');
+        
+        if (!data.success) {
+          // Show error in the queue container instead
+          document.getElementById('now-playing').innerHTML = `
+            <div class="status-error">
+              <h2>❌ Error</h2>
+              <p>${data.error}</p>
+              ${data.authUrl ? `<a href="${data.authUrl}" class="btn">Connect with Spotify</a>` : ''}
+            </div>
+          `;
+          document.getElementById('now-playing').style.display = 'block';
+          document.getElementById('upcoming-queue').style.display = 'none';
+          return;
+        }
+        
+        // Display API note if there is one
+        if (data.message) {
+          apiNote.textContent = data.message;
+        }
+        
+        // Display currently playing track
+        if (data.currentlyPlaying && data.currentlyPlaying.item) {
+          const track = data.currentlyPlaying.item;
+          document.getElementById('current-track-display').textContent = 
+            `${track.name} - ${track.artists.map(artist => artist.name).join(', ')}`;
+
+          
+
+          
+
+          
+          // Show the now playing section
+          document.getElementById('now-playing').style.display = 'block';
+        } else {
+          document.getElementById('now-playing').innerHTML = '<h2>Nothing currently playing</h2>';
+          document.getElementById('now-playing').style.display = 'block';
+        }
+        
+        // Display song request queue
+        if (data.shadowQueue && data.shadowQueue.length > 0) {
+          let queueHtml = '';
+          
+          data.shadowQueue.forEach((track, index) => {
+            queueHtml += `
+              <div class="queue-item">
+                ${index + 1}. <span class="requester">${track.requestedBy}</span>: ${track.trackName} - ${track.artistName}
+              </div>
+            `;
+          });
+          
+          queueList.innerHTML = queueHtml;
+          document.getElementById('upcoming-queue').style.display = 'block';
+        } else {
+          queueList.innerHTML = '<p class="empty-queue-message">No upcoming tracks in queue</p>';
+          document.getElementById('upcoming-queue').style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Error fetching queue:', error);
+        document.getElementById('now-playing').innerHTML = `
+          <div class="status-error">
+            <h2>❌ Error</h2>
+            <p>Error connecting to Spotify API: ${error.message}</p>
+          </div>
+        `;
+        document.getElementById('now-playing').style.display = 'block';
+        document.getElementById('upcoming-queue').style.display = 'none';
+      }
+    }
+    
+    // Clear the queue
+    async function clearQueue() {
+      try {
+        const response = await fetch('/api/spotify/queue/clear', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          // Refresh the queue display
+          fetchQueue();
+          alert('Queue cleared successfully');
+        } else {
+          alert(`Error clearing queue: ${data.error}`);
+        }
+      } catch (error) {
+        console.error('Error clearing queue:', error);
+        alert(`Error clearing queue: ${error.message}`);
+      }
+    }
+    
+    // Set up auto-refresh
+    function setupAutoRefresh() {
+      // Start auto-refresh by default
+      refreshInterval = setInterval(fetchQueue, 10000);
+      
+      // Set up manual refresh button
+      document.getElementById('refresh-button').addEventListener('click', function() {
+        fetchQueue();
+        // Visual feedback that refresh was triggered
+        const button = document.getElementById('refresh-button');
+        button.textContent = 'Refreshing...';
+        setTimeout(() => {
+          button.textContent = 'Refresh Now';
+        }, 500);
+      });
+      
+      // Set up clear queue button
+      document.getElementById('clear-queue-button').addEventListener('click', clearQueue);
+    }
+    
+    // Initialize the page
+    window.addEventListener('DOMContentLoaded', () => {
+      // Fetch queue on page load
+      fetchQueue();
+      
+      // Set up auto-refresh
+      setupAutoRefresh();
+    });
+  </script>
+</html>

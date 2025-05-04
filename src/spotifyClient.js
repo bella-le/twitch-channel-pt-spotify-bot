@@ -213,9 +213,10 @@ async function transferPlayback(deviceId) {
 /**
  * Add a song to the Spotify queue
  * @param {string} query - The song query (can be a Spotify URI, URL, or search term)
+ * @param {string} requestedBy - The username of the person who requested the song
  * @returns {Object} The result of the operation
  */
-async function addSongToQueue(query) {
+async function addSongToQueue(query, requestedBy = 'Unknown User') {
   try {
     if (!initialized) {
       throw new Error('Spotify client is not initialized');
@@ -306,6 +307,18 @@ async function addSongToQueue(query) {
       }
     }
     
+    // Add to our local queue store
+    const queueStore = require('./queueStore');
+    const songRequest = {
+      trackId,
+      trackName,
+      artistName,
+      requestedBy
+    };
+    
+    queueStore.addToQueue(songRequest);
+    console.log(`Added song to local queue: ${trackName} by ${artistName} (requested by ${requestedBy})`);
+    
     return {
       success: true,
       trackId,
@@ -321,6 +334,41 @@ async function addSongToQueue(query) {
   }
 }
 
+/**
+ * Get the currently playing track
+ * @returns {Object|null} The currently playing track or null if nothing is playing
+ */
+async function getCurrentlyPlaying() {
+  try {
+    if (!initialized) {
+      throw new Error('Spotify client is not initialized');
+    }
+    
+    // Check if we need to refresh the token
+    try {
+      const tokens = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'));
+      if (Date.now() > tokens.expiresAt) {
+        await refreshAccessToken();
+      }
+    } catch (error) {
+      console.log('Error checking token expiration, attempting refresh:', error.message);
+      await refreshAccessToken();
+    }
+    
+    // Get currently playing track
+    const response = await spotifyApi.getMyCurrentPlaybackState();
+    
+    if (response.statusCode === 204 || !response.body) {
+      return null; // Nothing is playing
+    }
+    
+    return response.body;
+  } catch (error) {
+    console.error('Error getting currently playing track:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   initialize,
   getAuthorizationUrl,
@@ -328,5 +376,6 @@ module.exports = {
   isInitialized,
   addSongToQueue,
   getDevices,
-  transferPlayback
+  transferPlayback,
+  getCurrentlyPlaying
 };
