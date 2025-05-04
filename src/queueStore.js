@@ -10,6 +10,9 @@
 // In-memory queue store
 let songRequestQueue = [];
 
+// Track the currently playing song
+let currentlyPlayingSong = null;
+
 // Schedule for clearing the queue (8 AM Eastern Time)
 let clearQueueTimeout = null;
 
@@ -52,27 +55,50 @@ function getQueue() {
 
 /**
  * Check if the currently playing song matches the first item in the queue
- * If it does, remove it from the queue
+ * If it does, remove it from the queue and set it as the currently playing song
+ * If it doesn't match any song in the queue, clear all songs in the queue as they've been skipped
  * @param {Object} currentlyPlaying - The currently playing track from Spotify API
- * @returns {boolean} Whether a match was found and removed
+ * @returns {Object} Result with whether a match was found and any skipped songs
  */
 function checkAndRemoveCurrentlyPlaying(currentlyPlaying) {
-  // If queue is empty, nothing to do
-  if (songRequestQueue.length === 0 || !currentlyPlaying || !currentlyPlaying.item) {
-    return false;
+  // If nothing is playing, nothing to do
+  if (!currentlyPlaying || !currentlyPlaying.item) {
+    return { matched: false, skipped: [] };
   }
   
-  // Get the first item in the queue
-  const firstInQueue = songRequestQueue[0];
-  
-  // Check if the currently playing track matches the first in queue
-  if (firstInQueue.trackId === currentlyPlaying.item.id) {
-    // Remove the first item from the queue
-    songRequestQueue.shift();
-    return true;
+  // If queue is not empty, check if any item matches
+  if (songRequestQueue.length > 0) {
+    // Get the first item in the queue
+    const firstInQueue = songRequestQueue[0];
+    
+    // Check if the currently playing track matches the first in queue
+    if (firstInQueue.trackId === currentlyPlaying.item.id) {
+      // Remove the first item from the queue and set it as currently playing
+      currentlyPlayingSong = songRequestQueue.shift();
+      return { matched: true, skipped: [] };
+    } else {
+      // The currently playing song doesn't match the first in queue
+      // Check if it matches the second song in our queue (index 1)
+      // We only handle the case where the second song is played, to avoid clearing too many songs
+      if (songRequestQueue.length > 1 && songRequestQueue[1].trackId === currentlyPlaying.item.id) {
+        // Found a match with the second song - only the first song was skipped
+        const skippedSong = songRequestQueue.shift(); // Remove the first song
+        // Set the matched song (now the first in queue) as currently playing and remove it
+        currentlyPlayingSong = songRequestQueue.shift();
+        console.log(`Second song in queue is now playing. Removed skipped song: ${skippedSong.trackName}.`);
+        return { matched: true, skipped: [skippedSong] };
+      }
+      // If the currently playing song is not in our queue, we don't do anything with the queue
+    }
   }
   
-  return false;
+  // If we don't have a match in the queue but the song changed,
+  // reset the currently playing song
+  if (currentlyPlayingSong && currentlyPlayingSong.trackId !== currentlyPlaying.item.id) {
+    currentlyPlayingSong = null;
+  }
+  
+  return { matched: false, skipped: [] };
 }
 
 /**
@@ -82,6 +108,14 @@ function checkAndRemoveCurrentlyPlaying(currentlyPlaying) {
 function clearQueue() {
   songRequestQueue = [];
   return { queue: songRequestQueue };
+}
+
+/**
+ * Get the currently playing song with requester info
+ * @returns {Object|null} The currently playing song with requester info or null
+ */
+function getCurrentlyPlaying() {
+  return currentlyPlayingSong;
 }
 
 /**
@@ -129,5 +163,6 @@ module.exports = {
   addToQueue,
   getQueue,
   checkAndRemoveCurrentlyPlaying,
-  clearQueue
+  clearQueue,
+  getCurrentlyPlaying
 };

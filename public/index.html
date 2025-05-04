@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spotify Queue</title>
+  <title>Squerk Spotify Queue</title>
   <style>
     body {
       font-family: 'Arial', sans-serif;
@@ -181,8 +181,8 @@
 <body>
   <div class="container">
     <div class="title-container">
-      <img src="/img/squerkJam.gif" alt="Dancing Squerk" class="title-image">
-      <h1>Spotify Queue</h1>
+      <img src="/img/squerkJam.gif" alt="squerkJam" class="title-image">
+      <h1>Squerk Spotify Queue</h1>
     </div>
     
     <div id="queue-container" class="queue-container">
@@ -250,8 +250,14 @@
         // Display currently playing track
         if (data.currentlyPlaying && data.currentlyPlaying.item) {
           const track = data.currentlyPlaying.item;
-          document.getElementById('current-track-display').textContent = 
-            `${track.name} - ${track.artists.map(artist => artist.name).join(', ')}`;
+          let displayText = `${track.name} - ${track.artists.map(artist => artist.name).join(', ')}`;
+          
+          // Add requester info if available
+          if (data.currentSongInfo && data.currentSongInfo.requestedBy) {
+            displayText += ` (requested by ${data.currentSongInfo.requestedBy})`;
+          }
+          
+          document.getElementById('current-track-display').textContent = displayText;
 
           
 

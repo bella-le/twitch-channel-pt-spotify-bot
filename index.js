@@ -69,16 +69,24 @@ app.get('/api/spotify/queue', async (req, res) => {
     const localQueue = queueStore.getQueue();
     
     // Check if current song matches first in queue and remove if needed
+    // Also handle skipped songs in the queue
+    let queueResult = { matched: false, skipped: [] };
     if (currentlyPlaying && currentlyPlaying.item) {
-      queueStore.checkAndRemoveCurrentlyPlaying(currentlyPlaying);
+      queueResult = queueStore.checkAndRemoveCurrentlyPlaying(currentlyPlaying);
     }
     
-    res.json({
+    // Get the requester info for the currently playing song
+    const currentSongInfo = queueStore.getCurrentlyPlaying();
+    
+    // Add requester info to the response
+    const response = {
       success: true,
       currentlyPlaying,
-      shadowQueue: localQueue,
-      message: 'Note: This queue shows song requests made through channel points redemptions.'
-    });
+      currentSongInfo,
+      shadowQueue: localQueue
+    };
+    
+    res.json(response);
   } catch (error) {
     console.error('Error getting queue:', error);
     res.json({
