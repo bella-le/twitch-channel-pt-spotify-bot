@@ -26,9 +26,14 @@ app.use('/', authRoutes);
 // Setup test routes
 setupTestRoutes(app);
 
-// Home route
+// Home route (now the queue view)
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Auth streamer route
+app.get('/auth-streamer', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'auth-streamer.html'));
 });
 
 // Status endpoint

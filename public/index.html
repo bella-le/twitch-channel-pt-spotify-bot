@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Twitch Song Request Integration</title>
+  <title>Spotify Queue</title>
   <style>
     body {
       font-family: 'Arial', sans-serif;
@@ -15,6 +15,18 @@
       background-color: #f9f9f9;
     }
     
+    .title-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    
+    .title-image {
+      height: 60px;
+      margin-right: 15px;
+    }
+    
     .container {
       background-color: white;
       border-radius: 10px;
@@ -23,63 +35,36 @@
     }
     
     h1 {
-      color: #6441a5; /* Twitch purple */
+      color: #1DB954; /* Spotify green */
       text-align: center;
       margin-bottom: 30px;
     }
     
-    h2 {
-      color: #1DB954; /* Spotify green */
-      margin-top: 30px;
-    }
-    
-    .status-container {
-      margin: 30px 0;
-      padding: 20px;
-      border-radius: 5px;
-      text-align: center;
-    }
-    
-    .status-authenticated {
-      background-color: #d4edda;
-      color: #155724;
-      border: 1px solid #c3e6cb;
-    }
-    
-    .status-not-authenticated {
-      background-color: #f8d7da;
-      color: #721c24;
-      border: 1px solid #f5c6cb;
-    }
+
     
     .btn {
       display: inline-block;
-      background-color: #6441a5;
+      background-color: #1DB954;
       color: white;
       padding: 10px 20px;
       text-decoration: none;
       border-radius: 5px;
       font-weight: bold;
-      margin-top: 10px;
+      margin: 10px 5px;
+      cursor: pointer;
+      border: none;
     }
     
     .btn:hover {
-      background-color: #7d5bbe;
+      background-color: #1ed760;
     }
     
-    .auth-button {
-      display: inline-block;
-      background-color: #6441a5;
-      color: white;
-      padding: 10px 20px;
-      text-decoration: none;
-      border-radius: 5px;
-      font-weight: bold;
-      margin: 10px 0;
+    .btn-danger {
+      background-color: #dc3545;
     }
     
-    .auth-button:hover {
-      background-color: #7d5bbe;
+    .btn-danger:hover {
+      background-color: #c82333;
     }
     
     .status-success {
@@ -104,18 +89,62 @@
       margin-top: 5px;
     }
     
-    .full-width {
-      width: 100%;
+    .queue-container {
+      margin-top: 30px;
+    }
+    
+    .now-playing {
+      background-color: #f0f8ff;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      border-left: 5px solid #1DB954;
+    }
+    
+    .track-info {
+      margin: 10px 0;
+      font-size: 1.1em;
+    }
+    
+
+    
+    /* Queue list styles */
+    #upcoming-queue {
+      margin-top: 20px;
+    }
+    
+    .queue-item {
+      padding: 10px 15px;
+      border-bottom: 1px solid #eee;
+      font-size: 1.1em;
+    }
+    
+    .queue-item:hover {
+      background-color: #f9f9f9;
+    }
+    
+    .requester {
+      color: #1DB954;
+      font-weight: bold;
+    }
+    
+    .empty-queue-message {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+      font-style: italic;
+    }
+    
+    .refresh-container {
       text-align: center;
       margin: 20px 0;
     }
     
-    .steps {
-      margin: 30px 0;
-    }
-    
-    .steps li {
-      margin-bottom: 15px;
+    .last-updated {
+      text-align: center;
+      font-size: 0.8em;
+      color: #999;
+      margin-top: 10px;
     }
     
     footer {
@@ -124,101 +153,201 @@
       font-size: 0.9em;
       color: #777;
     }
+    
+    .auto-refresh {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 10px;
+    }
+    
+    .auto-refresh input {
+      margin-right: 5px;
+    }
+    
+    @media (max-width: 600px) {
+      .track-info {
+        flex-direction: column;
+        text-align: center;
+      }
+      
+      .track-image {
+        margin-right: 0;
+        margin-bottom: 10px;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>twitch channel points spotify song request integration</h1>
-    
-    <div id="status-container" class="status-container">
-      <p>Checking authentication status...</p>
+    <div class="title-container">
+      <img src="/img/squerkJam.gif" alt="Dancing Squerk" class="title-image">
+      <h1>Spotify Queue</h1>
     </div>
     
-    <div id="twitch-status-container" class="status-container">
-      <p>Checking Twitch authentication status...</p>
-    </div>
-    
-    <h2>basic easy thing setup instructions</h2>
-    <ol class="steps">
-      <li>create a channel point redemption on your Twitch channel named "Song Request" (or whatever you've configured in your .env file)</li>
-      <li>make sure to enable the "Require viewer to enter text" option for the redemption</li>
-      <li>viewers can redeem channel points and enter a song name, Spotify URL, or Spotify URI in the message</li>
-      <li>the integration will automatically add the requested song to your Spotify queue</li>
-    </ol>
-    
-    <h2>setup instructions for you, the streamer!!!</h2>
-    <ol class="steps">
-      <li>let me know the email you use for Spotify so I can configure it onto the Spotify developer application</li>
-      <li>make sure Spotify is running on your device :)</li>
-      <li>uhhhh hopefully it works?? idk ive never tested channel point shit before</li>
-    </ol>
+    <div id="queue-container" class="queue-container">
+      <div id="now-playing" class="now-playing">
+        <h2>Now Playing</h2>
+        <div class="track-info">
+          <p id="current-track-display"></p>
+        </div>
+      </div>
+      
 
-    <p>disclaimer that this will only work for YOU by the way</p>
+      
+      <div id="upcoming-queue" style="margin-top: 30px;">
+        <h2>Upcoming in Queue</h2>
+        <div id="queue-list"></div>
+      </div>
+    </div>
+    
+    <div class="refresh-container">
+      <button id="refresh-button" class="btn">Refresh Now</button>
+      <div class="last-updated">
+        <span>Auto-refreshes every 10 seconds</span>
+      </div>
+    </div>
+    
+    <p class="note" id="api-note"></p>
+    
+
   </div>
   
   <footer>
-    <p>made with ❤️ by <a href="https://github.com/bella-le">bella/bel/bels</a></p>
+    <p>made with ❤️ by <a href="https://twitch.tv/7decibel">7decibel</a></p>
   </footer>
-
+  
   <script>
-    // Check authentication status on page load
-    window.addEventListener('DOMContentLoaded', async () => {
+    let refreshInterval;
+    
+
+    
+    // Fetch and display the queue
+    async function fetchQueue() {
       try {
-        const response = await fetch('/api/status');
+        const response = await fetch('/api/spotify/queue');
         const data = await response.json();
         
-        const spotifyStatusContainer = document.getElementById('status-container');
-        const twitchStatusContainer = document.getElementById('twitch-status-container');
+        const queueContainer = document.getElementById('queue-container');
+        const apiNote = document.getElementById('api-note');
+        const queueList = document.getElementById('queue-list');
         
-        // Update Spotify status
-        if (data.spotify === 'connected') {
-          spotifyStatusContainer.innerHTML = `
-            <p class="status-success">✅ Connected to Spotify</p>
-            <p>Your Spotify integration is ready!</p>
+        if (!data.success) {
+          // Show error in the queue container instead
+          document.getElementById('now-playing').innerHTML = `
+            <div class="status-error">
+              <h2>❌ Error</h2>
+              <p>${data.error}</p>
+              ${data.authUrl ? `<a href="${data.authUrl}" class="btn">Connect with Spotify</a>` : ''}
+            </div>
           `;
-        } else {
-          spotifyStatusContainer.innerHTML = `
-            <p class="status-error">❌ Not connected to Spotify</p>
-            <a href="/auth/spotify" class="auth-button">Connect with Spotify</a>
-            <p class="note">You'll need to authenticate with Spotify to use this integration.</p>
-          `;
+          document.getElementById('now-playing').style.display = 'block';
+          document.getElementById('upcoming-queue').style.display = 'none';
+          return;
         }
         
-        // Update Twitch status
-        if (data.twitch === 'connected') {
-          twitchStatusContainer.innerHTML = `
-            <p class="status-success">✅ Connected to Twitch</p>
-            <p>Your Twitch integration is ready!</p>
-          `;
+        
+        // Display currently playing track
+        if (data.currentlyPlaying && data.currentlyPlaying.item) {
+          const track = data.currentlyPlaying.item;
+          document.getElementById('current-track-display').textContent = 
+            `${track.name} - ${track.artists.map(artist => artist.name).join(', ')}`;
+
+          
+
+          
+
+          
+          // Show the now playing section
+          document.getElementById('now-playing').style.display = 'block';
         } else {
-          twitchStatusContainer.innerHTML = `
-            <p class="status-error">❌ Not connected to Twitch</p>
-            <a href="/auth/twitch" class="auth-button">Connect with Twitch</a>
-            <p class="note">You'll need to authenticate with Twitch to enable channel point redemptions.</p>
-          `;
+          document.getElementById('now-playing').innerHTML = '<h2>Nothing currently playing</h2>';
+          document.getElementById('now-playing').style.display = 'block';
         }
         
-        // Check if both are connected
-        if (data.spotify === 'connected' && data.twitch === 'connected') {
-          const statusMessage = document.createElement('div');
-          statusMessage.className = 'status-success full-width';
-          statusMessage.innerHTML = `
-            <p>🎉 Your integration is fully configured and ready to accept song requests!</p>
-          `;
-          document.querySelector('.container').insertBefore(statusMessage, document.querySelector('h2'));
+        // Display song request queue
+        if (data.shadowQueue && data.shadowQueue.length > 0) {
+          let queueHtml = '';
+          
+          data.shadowQueue.forEach((track, index) => {
+            queueHtml += `
+              <div class="queue-item">
+                ${index + 1}. <span class="requester">${track.requestedBy}</span>: ${track.trackName} - ${track.artistName}
+              </div>
+            `;
+          });
+          
+          queueList.innerHTML = queueHtml;
+          document.getElementById('upcoming-queue').style.display = 'block';
+        } else {
+          queueList.innerHTML = '<p class="empty-queue-message">No upcoming tracks in queue</p>';
+          document.getElementById('upcoming-queue').style.display = 'block';
         }
       } catch (error) {
-        console.error('Error checking status:', error);
-        document.getElementById('status-container').innerHTML = `
-          <p class="status-error">❌ Error checking status</p>
-          <p>There was an error checking the authentication status. Please try again later.</p>
+        console.error('Error fetching queue:', error);
+        document.getElementById('now-playing').innerHTML = `
+          <div class="status-error">
+            <h2>❌ Error</h2>
+            <p>Error connecting to Spotify API: ${error.message}</p>
+          </div>
         `;
-        document.getElementById('twitch-status-container').innerHTML = `
-          <p class="status-error">❌ Error checking status</p>
-          <p>There was an error checking the authentication status. Please try again later.</p>
-        `;
+        document.getElementById('now-playing').style.display = 'block';
+        document.getElementById('upcoming-queue').style.display = 'none';
       }
+    }
+    
+    // Clear the queue
+    async function clearQueue() {
+      try {
+        const response = await fetch('/api/spotify/queue/clear', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          // Refresh the queue display
+          fetchQueue();
+          alert('Queue cleared successfully');
+        } else {
+          alert(`Error clearing queue: ${data.error}`);
+        }
+      } catch (error) {
+        console.error('Error clearing queue:', error);
+        alert(`Error clearing queue: ${error.message}`);
+      }
+    }
+    
+    // Set up auto-refresh
+    function setupAutoRefresh() {
+      // Start auto-refresh by default
+      refreshInterval = setInterval(fetchQueue, 10000);
+      
+      // Set up manual refresh button
+      document.getElementById('refresh-button').addEventListener('click', function() {
+        fetchQueue();
+        // Visual feedback that refresh was triggered
+        const button = document.getElementById('refresh-button');
+        button.textContent = 'Refreshing...';
+        setTimeout(() => {
+          button.textContent = 'Refresh Now';
+        }, 500);
+      });
+      
+      // Set up clear queue button
+      document.getElementById('clear-queue-button').addEventListener('click', clearQueue);
+    }
+    
+    // Initialize the page
+    window.addEventListener('DOMContentLoaded', () => {
+      // Fetch queue on page load
+      fetchQueue();
+      
+      // Set up auto-refresh
+      setupAutoRefresh();
     });
   </script>
-</body>
 </html>

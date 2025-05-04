@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Twitch Song Request Integration</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    
+    .container {
+      background-color: white;
+      border-radius: 10px;
+      padding: 30px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    h1 {
+      color: #6441a5; /* Twitch purple */
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    h2 {
+      color: #1DB954; /* Spotify green */
+      margin-top: 30px;
+    }
+    
+    .status-container {
+      margin: 30px 0;
+      padding: 20px;
+      border-radius: 5px;
+      text-align: center;
+    }
+    
+    .status-authenticated {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .status-not-authenticated {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .btn {
+      display: inline-block;
+      background-color: #6441a5;
+      color: white;
+      padding: 10px 20px;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+    
+    .btn:hover {
+      background-color: #7d5bbe;
+    }
+    
+    .auth-button {
+      display: inline-block;
+      background-color: #6441a5;
+      color: white;
+      padding: 10px 20px;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+    
+    .auth-button:hover {
+      background-color: #7d5bbe;
+    }
+    
+    .status-success {
+      color: #155724;
+      background-color: #d4edda;
+      border: 1px solid #c3e6cb;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    
+    .status-error {
+      color: #721c24;
+      background-color: #f8d7da;
+      border: 1px solid #f5c6cb;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    
+    .note {
+      font-size: 0.9em;
+      color: #666;
+      margin-top: 5px;
+    }
+    
+    .full-width {
+      width: 100%;
+      text-align: center;
+      margin: 20px 0;
+    }
+    
+    .steps {
+      margin: 30px 0;
+    }
+    
+    .steps li {
+      margin-bottom: 15px;
+    }
+    
+    footer {
+      margin-top: 50px;
+      text-align: center;
+      font-size: 0.9em;
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>twitch channel points spotify song request integration</h1>
+    
+    <div id="status-container" class="status-container">
+      <p>Checking authentication status...</p>
+    </div>
+    
+    <div id="twitch-status-container" class="status-container">
+      <p>Checking Twitch authentication status...</p>
+    </div>
+    
+    <h2>basic easy thing setup instructions</h2>
+    <ol class="steps">
+      <li>create a channel point redemption on your Twitch channel named "Song Request" (or whatever you've configured in your .env file)</li>
+      <li>make sure to enable the "Require viewer to enter text" option for the redemption</li>
+      <li>viewers can redeem channel points and enter a song name, Spotify URL, or Spotify URI in the message</li>
+      <li>the integration will automatically add the requested song to your Spotify queue</li>
+    </ol>
+    
+    <h2>setup instructions for you, the streamer!!!</h2>
+    <ol class="steps">
+      <li>let me know the email you use for Spotify so I can configure it onto the Spotify developer application</li>
+      <li>make sure Spotify is running on your device :)</li>
+      <li>uhhhh hopefully it works?? idk ive never tested channel point shit before</li>
+    </ol>
+
+    <p>disclaimer that this will only work for YOU by the way</p>
+    
+    <div class="full-width">
+      <a href="/" class="btn">View Song Queue</a>
+    </div>
+  </div>
+  
+  <footer>
+    <p>made with ❤️ by <a href="https://github.com/bella-le">bella/bel/bels/twitch user 7decibel</a></p>
+  </footer>
+
+  <script>
+    // Check authentication status on page load
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const response = await fetch('/api/status');
+        const data = await response.json();
+        
+        const spotifyStatusContainer = document.getElementById('status-container');
+        const twitchStatusContainer = document.getElementById('twitch-status-container');
+        
+        // Update Spotify status
+        if (data.spotify === 'connected') {
+          spotifyStatusContainer.innerHTML = `
+            <p class="status-success">✅ Connected to Spotify</p>
+            <p>Your Spotify integration is ready!</p>
+          `;
+        } else {
+          spotifyStatusContainer.innerHTML = `
+            <p class="status-error">❌ Not connected to Spotify</p>
+            <a href="/auth/spotify" class="auth-button">Connect with Spotify</a>
+            <p class="note">You'll need to authenticate with Spotify to use this integration.</p>
+          `;
+        }
+        
+        // Update Twitch status
+        if (data.twitch === 'connected') {
+          twitchStatusContainer.innerHTML = `
+            <p class="status-success">✅ Connected to Twitch</p>
+            <p>Your Twitch integration is ready!</p>
+          `;
+        } else {
+          twitchStatusContainer.innerHTML = `
+            <p class="status-error">❌ Not connected to Twitch</p>
+            <a href="/auth/twitch" class="auth-button">Connect with Twitch</a>
+            <p class="note">You'll need to authenticate with Twitch to enable channel point redemptions.</p>
+          `;
+        }
+        
+        // Check if both are connected
+        if (data.spotify === 'connected' && data.twitch === 'connected') {
+          // Both services are connected, show success message
+          const container = document.querySelector('.container');
+          const successMessage = document.createElement('div');
+          successMessage.className = 'full-width';
+          successMessage.innerHTML = `
+            <p class="status-success">🎉 All set! Your song request integration is ready to use.</p>
+          `;
+          
+          // Insert after the Twitch status container
+          twitchStatusContainer.after(successMessage);
+        }
+      } catch (error) {
+        console.error('Error checking status:', error);
+        document.getElementById('status-container').innerHTML = `
+          <p class="status-error">❌ Error checking status: ${error.message}</p>
+        `;
+      }
+    });
+  </script>
+</body>
+</html>
