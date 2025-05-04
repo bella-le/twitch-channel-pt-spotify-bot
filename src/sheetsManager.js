@@ -189,13 +189,9 @@ async function updateSongLeaderboard(songData, username = 'Unknown') {
       // Access the Track ID directly from raw data (5th column, index 4)
       const rowTrackId = rows[i]._rawData[4];
       
-      // Debug logging to see what's happening
-      console.log(`Checking row ${i}: Track ID '${rowTrackId}' vs '${songData.trackId}'`);
-      
       if (rowTrackId && rowTrackId.trim() === songData.trackId.trim()) {
         existingRow = rows[i];
         existingRowIndex = i;
-        console.log(`Found existing song at row ${i}`);
         break;
       }
     }
@@ -273,13 +269,9 @@ async function updateUserLeaderboard(username, lastRequestDate) {
       // Access the Username directly from raw data (1st column, index 0)
       const rowUsername = rows[i]._rawData[0];
       
-      // Debug logging to see what's happening
-      console.log(`Checking row ${i}: Username '${rowUsername}' vs '${username}'`);
-      
       if (rowUsername && rowUsername.trim().toLowerCase() === username.trim().toLowerCase()) {
         existingRow = rows[i];
         existingRowIndex = i;
-        console.log(`Found existing user at row ${i}`);
         break;
       }
     }
