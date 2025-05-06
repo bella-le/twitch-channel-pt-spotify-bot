@@ -3,6 +3,7 @@ const express = require('express');
 const path = require('path');
 const twitchEventSub = require('./src/twitchEventSub');
 const spotifyClient = require('./src/spotifyClient');
+const blacklistManager = require('./src/blacklistManager');
 const authRoutes = require('./src/authRoutes');
 const setupTestRoutes = require('./src/testRoutes');
 
@@ -90,6 +91,59 @@ app.get('/api/spotify/queue', async (req, res) => {
   } catch (error) {
     console.error('Error getting queue:', error);
     res.json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// API endpoint to get the blacklist
+app.get('/api/blacklist', (req, res) => {
+  try {
+    const blacklist = blacklistManager.getBlacklist();
+    res.json({
+      success: true,
+      blacklist
+    });
+  } catch (error) {
+    console.error('Error getting blacklist:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// API endpoint to update the blacklist
+app.post('/api/blacklist', express.json(), (req, res) => {
+  try {
+    const { blacklist } = req.body;
+    
+    if (!Array.isArray(blacklist)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Blacklist must be an array of usernames'
+      });
+    }
+    
+    // Save the blacklist
+    const success = blacklistManager.saveBlacklist(blacklist);
+    
+    if (success) {
+      res.json({
+        success: true,
+        message: 'Blacklist updated successfully',
+        blacklist
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to save blacklist'
+      });
+    }
+  } catch (error) {
+    console.error('Error updating blacklist:', error);
+    res.status(500).json({
       success: false,
       error: error.message
     });

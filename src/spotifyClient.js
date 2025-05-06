@@ -1,6 +1,7 @@
 const SpotifyWebApi = require('spotify-web-api-node');
 const fs = require('fs');
 const path = require('path');
+const blacklistManager = require('./blacklistManager');
 const open = require('open');
 
 // Token storage path - use environment variable if available for cloud deployment
@@ -220,6 +221,14 @@ async function addSongToQueue(query, requestedBy = 'Unknown User') {
   try {
     if (!initialized) {
       throw new Error('Spotify client is not initialized');
+    }
+    
+    // Check if the user is blacklisted
+    if (blacklistManager.isBlacklisted(requestedBy)) {
+      return {
+        success: false,
+        error: 'User is blacklisted from making song requests'
+      };
     }
     
     // Check if we need to refresh the token

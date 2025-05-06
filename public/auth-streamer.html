@@ -110,6 +110,38 @@
       margin: 20px 0;
     }
     
+    .blacklist-container {
+      margin: 30px 0;
+      padding: 20px;
+      border-radius: 5px;
+      background-color: #f8f9fa;
+      border: 1px solid #ddd;
+    }
+    
+    .blacklist-textarea {
+      width: 100%;
+      height: 100px;
+      margin: 10px 0;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-family: 'Arial', sans-serif;
+    }
+    
+    .save-button {
+      background-color: #1DB954; /* Spotify green */
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    
+    .save-button:hover {
+      background-color: #1ed760;
+    }
+    
     .steps {
       margin: 30px 0;
     }
@@ -158,6 +190,16 @@
     <div class="full-width">
       <a href="/" class="btn">View Song Queue</a>
     </div>
+    
+    <div class="blacklist-container">
+      <h2>User Blacklist</h2>
+      <p>Enter usernames to blacklist from making song requests. Separate multiple usernames with commas.</p>
+      <textarea id="blacklist-textarea" class="blacklist-textarea" placeholder="Enter usernames to blacklist (e.g., user1, user2, user3)"></textarea>
+      <div>
+        <button id="save-blacklist" class="save-button">Save Blacklist</button>
+      </div>
+      <div id="blacklist-status" style="margin-top: 10px;"></div>
+    </div>
   </div>
   
   <footer>
@@ -165,6 +207,52 @@
   </footer>
 
   <script>
+    // Load the blacklist from the server
+    async function loadBlacklist() {
+      try {
+        const response = await fetch('/api/blacklist');
+        const data = await response.json();
+        
+        if (data.success) {
+          document.getElementById('blacklist-textarea').value = data.blacklist.join(', ');
+        } else {
+          console.error('Error loading blacklist:', data.error);
+        }
+      } catch (error) {
+        console.error('Error loading blacklist:', error);
+      }
+    }
+    
+    // Save the blacklist to the server
+    async function saveBlacklist() {
+      try {
+        const blacklistText = document.getElementById('blacklist-textarea').value;
+        const blacklist = blacklistText.split(',').map(username => username.trim().toLowerCase()).filter(username => username.length > 0);
+        
+        const response = await fetch('/api/blacklist', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ blacklist })
+        });
+        
+        const data = await response.json();
+        
+        const statusElement = document.getElementById('blacklist-status');
+        if (data.success) {
+          statusElement.innerHTML = '<p class="status-success">✅ Blacklist saved successfully</p>';
+          // Update the textarea with the cleaned list
+          document.getElementById('blacklist-textarea').value = data.blacklist.join(', ');
+        } else {
+          statusElement.innerHTML = `<p class="status-error">❌ Error saving blacklist: ${data.error}</p>`;
+        }
+      } catch (error) {
+        console.error('Error saving blacklist:', error);
+        document.getElementById('blacklist-status').innerHTML = `<p class="status-error">❌ Error saving blacklist: ${error.message}</p>`;
+      }
+    }
+    
     // Check authentication status on page load
     window.addEventListener('DOMContentLoaded', async () => {
       try {
@@ -222,6 +310,12 @@
         `;
       }
     });
+    
+    // Load the blacklist on page load
+    loadBlacklist();
+    
+    // Add event listener for the save button
+    document.getElementById('save-blacklist').addEventListener('click', saveBlacklist);
   </script>
 </body>
 </html>
